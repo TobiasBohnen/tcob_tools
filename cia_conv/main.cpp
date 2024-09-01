@@ -49,7 +49,6 @@ Supported file formats:
 # misc 
 
 - rFXGen (.rfx) -> config, audio
-- Bitmap Font Generator (.fnt) -> config
 
 )";
 }
@@ -57,7 +56,6 @@ Supported file formats:
 auto main(int argc, char* argv[]) -> int
 {
     io::magic::add_signature({{{0, {'r', 'F', 'X', ' '}}}, ".rfx", "misc"});
-    io::magic::add_signature({{{0, {'B', 'M', 'F'}}}, ".fnt", "misc"});
 
     argparse::ArgumentParser program("cia_conv");
     program.add_argument("input");
