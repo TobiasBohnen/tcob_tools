@@ -154,7 +154,7 @@ auto static convert_rfx(std::shared_ptr<io::ifstream>& in, std::string const& sr
     auto dstGroup(io::magic::get_group(io::get_extension(dst)));
     if (dstGroup == "config") {
         data::config::object obj;
-        audio::sound_wave::Serialize(wave, obj["wave"]);
+        Serialize(wave, obj["wave"]);
 
         if (!obj.save(dst)) {
             return print_error("error saving rfx config: " + dst);
