@@ -55,7 +55,7 @@ Supported file formats:
 
 auto main(int argc, char* argv[]) -> int
 {
-    io::magic::add_signature({{{0, {'r', 'F', 'X', ' '}}}, ".rfx", "misc"});
+    io::magic::add_signature({".rfx", "misc", {{0, {'r', 'F', 'X', ' '}}}});
 
     argparse::ArgumentParser program("cia_conv");
     program.add_argument("input");
