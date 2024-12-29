@@ -37,7 +37,7 @@ auto convert_image(std::shared_ptr<io::ifstream>& in, std::string const& src, st
         return print_error("error loading image: " + src);
     }
 
-    auto const& info {img.get_info()};
+    auto const& info {img.info()};
     std::cout << std::format("source info: BPP: {}, Width: {}, Height: {} \n",
                              (info.Format == image::format::RGBA ? 4 : 3), info.Size.Width, info.Size.Width);
 
@@ -73,7 +73,7 @@ auto convert_audio(std::shared_ptr<io::ifstream>& in, std::string const& src, st
         return print_error("error loading image: " + src);
     }
 
-    auto const& info {bfr.get_info()};
+    auto const& info {bfr.info()};
     std::cout << std::format("source info: Channels: {}, Frames: {}, Sample Rate: {} \n",
                              info.Channels, info.FrameCount, info.SampleRate);
 

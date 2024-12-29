@@ -16,7 +16,7 @@ auto static convert(std::string const& srcFile) -> std::string
     auto const img {gfx::image::Load(srcFile)};
     if (img) {
         std::stringstream ss;
-        auto const        size {img->get_info().size_in_bytes()};
+        auto const        size {img->info().size_in_bytes()};
         auto const        buf {img->buffer()};
 
         ss << "constexpr std::array<uint8_t, " << size << "> " << io::get_stem(srcFile);
