@@ -59,7 +59,7 @@ auto convert_audio(std::shared_ptr<io::ifstream>& in, std::string const& src, st
     std::any context {0};
 
 #if defined(TCOB_ENABLE_ADDON_AUDIO_TINYSOUNDFONT)
-    assets::manual_asset_ptr<sound_font> sf;
+    assets::owning_asset_ptr<sound_font> sf;
     if (!ctx.empty()) {
         if (sf->load(ctx) != load_status::Ok) {
             return print_error("error loading sound font: " + ctx);
