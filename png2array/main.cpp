@@ -17,7 +17,7 @@ auto static convert(std::string const& srcFile) -> std::string
     if (img) {
         std::stringstream ss;
         auto const        size {img->info().size_in_bytes()};
-        auto const        buf {img->buffer()};
+        auto const        buf {img->data()};
 
         ss << "constexpr std::array<uint8_t, " << size << "> " << io::get_stem(srcFile);
         ss << " {";
