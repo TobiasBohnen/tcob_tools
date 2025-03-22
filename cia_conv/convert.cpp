@@ -70,15 +70,15 @@ auto convert_audio(std::shared_ptr<io::ifstream>& in, std::string const& src, st
 
     buffer bfr;
     if (bfr.load(in, srcExt, context) == load_status::Error) {
-        return print_error("error loading image: " + src);
+        return print_error("error loading audio: " + src);
     }
 
     auto const& info {bfr.info()};
     std::cout << std::format("source info: Channels: {}, Frames: {}, Sample Rate: {} \n",
-                             info.Channels, info.FrameCount, info.SampleRate);
+                             info.Specs.Channels, info.FrameCount, info.Specs.SampleRate);
 
     if (!bfr.save(dst)) {
-        return print_error("error saving image: " + dst);
+        return print_error("error saving audio: " + dst);
     }
 
     std::cout << "done!\n";
