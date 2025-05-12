@@ -7,7 +7,7 @@
 
 auto convert_config(std::shared_ptr<io::ifstream>& in, std::string const& src, std::string const& srcExt, std::string const& dst) -> int
 {
-    using namespace tcob::data::config;
+    using namespace tcob::data;
     std::cout << "converting config file: " << src << " to " << dst << "\n";
 
     in->seek(0, io::seek_dir::Begin);
@@ -153,7 +153,7 @@ auto static convert_rfx(std::shared_ptr<io::ifstream>& in, std::string const& sr
 
     auto dstGroup(io::magic::get_group(io::get_extension(dst)));
     if (dstGroup == "config") {
-        data::config::object obj;
+        data::object obj;
         audio::sound_wave::Serialize(wave, obj["wave"]);
 
         if (!obj.save(dst)) {
