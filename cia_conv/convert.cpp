@@ -90,7 +90,7 @@ auto static convert_rfx(std::shared_ptr<io::ifstream>& in, std::string const& sr
     std::cout << "converting rfx: " << src << " to " << dst << "\n";
 
     struct RFXFile {
-        std::array<byte, 4> signature;
+        std::array<char, 4> signature;
         u16                 version;
         u16                 length;
         i32                 randSeed;
@@ -121,7 +121,7 @@ auto static convert_rfx(std::shared_ptr<io::ifstream>& in, std::string const& sr
 
     RFXFile const rfx {in->read<RFXFile>()};
 
-    if ((rfx.signature != std::array<byte, 4> {'r', 'F', 'X', ' '}) || rfx.version != 200 || rfx.length != 96) {
+    if ((rfx.signature != std::array<char, 4> {'r', 'F', 'X', ' '}) || rfx.version != 200 || rfx.length != 96) {
         return print_error("unsupported rfx file: " + src);
     }
 
