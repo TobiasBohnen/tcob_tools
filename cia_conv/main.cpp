@@ -88,7 +88,7 @@ auto main(int argc, char* argv[]) -> int
         .nargs(1);
 #endif
 
-    auto pl {platform::HeadlessInit(argv[0])};
+    auto pl {platform::HeadlessInit()};
 
     try {
         program.parse_args(argc, argv);

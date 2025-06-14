@@ -56,7 +56,7 @@ auto main(int argc, char* argv[]) -> int
         return 1;
     }
 
-    auto pl {platform::HeadlessInit(argv[0])};
+    auto pl {platform::HeadlessInit()};
 
     std::string const arg {program.get("folder")};
     if (!io::is_folder(arg)) {
