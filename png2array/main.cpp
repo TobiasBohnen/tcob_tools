@@ -13,8 +13,7 @@ namespace io = tcob::io;
 
 auto static convert(std::string const& srcFile) -> std::string
 {
-    auto const img {gfx::image::Load(srcFile)};
-    if (img) {
+    if (auto const img {gfx::image::Load(srcFile)}) {
         std::stringstream ss;
         auto const        size {img->info().size_in_bytes()};
         auto const        buf {img->data()};
