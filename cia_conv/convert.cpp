@@ -13,7 +13,7 @@ auto convert_config(std::shared_ptr<io::ifstream>& in, std::string const& src, s
     in->seek(0, io::seek_dir::Begin);
 
     object obj;
-    if (obj.load(*in, srcExt) == load_status::Error) {
+    if (!obj.load(*in, srcExt)) {
         return print_error("error loading config: " + src);
     }
 
@@ -33,7 +33,7 @@ auto convert_image(std::shared_ptr<io::ifstream>& in, std::string const& src, st
     in->seek(0, io::seek_dir::Begin);
 
     image img;
-    if (img.load(*in, srcExt) == load_status::Error) {
+    if (!img.load(*in, srcExt)) {
         return print_error("error loading image: " + src);
     }
 
@@ -61,7 +61,7 @@ auto convert_audio(std::shared_ptr<io::ifstream>& in, std::string const& src, st
 #if defined(TCOB_ENABLE_ADDON_AUDIO_TINYSOUNDFONT)
     assets::asset_owner_ptr<sound_font> sf;
     if (!ctx.empty()) {
-        if (sf->load(ctx) != load_status::Ok) {
+        if (!sf->load(ctx)) {
             return print_error("error loading sound font: " + ctx);
         }
         context = assets::asset_ptr<sound_font> {sf};
@@ -69,7 +69,7 @@ auto convert_audio(std::shared_ptr<io::ifstream>& in, std::string const& src, st
 #endif
 
     buffer bfr;
-    if (bfr.load(in, srcExt, context) == load_status::Error) {
+    if (!bfr.load(in, srcExt, context)) {
         return print_error("error loading audio: " + src);
     }
 
