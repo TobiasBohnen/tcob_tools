@@ -85,7 +85,7 @@ auto convert_audio(std::shared_ptr<io::ifstream>& in, std::string const& src, st
     return 0;
 }
 
-auto static convert_rfx(std::shared_ptr<io::ifstream>& in, std::string const& src, std::string const& dst) -> int
+static auto convert_rfx(std::shared_ptr<io::ifstream>& in, std::string const& src, std::string const& dst) -> int
 {
     std::cout << "converting rfx: " << src << " to " << dst << "\n";
 

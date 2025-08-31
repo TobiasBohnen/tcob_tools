@@ -6,7 +6,7 @@
 #include "../shared/argparse.hpp"
 #include "common.hpp"
 
-void static list_formats()
+static void list_formats()
 {
     std::cout <<
         R"(

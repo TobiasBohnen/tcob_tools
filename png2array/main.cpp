@@ -11,7 +11,7 @@
 using namespace tcob;
 namespace io = tcob::io;
 
-auto static convert(std::string const& srcFile) -> std::string
+static auto convert(std::string const& srcFile) -> std::string
 {
     if (auto const img {gfx::image::Load(srcFile)}) {
         std::stringstream ss;
