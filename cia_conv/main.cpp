@@ -38,7 +38,6 @@ Supported file formats:
 - flac (read)
 - mp3 (read)
 - vorbis (read, write)
-- opus (read, write)
 - midi (read)
 - it (read)
 - mod (read)
