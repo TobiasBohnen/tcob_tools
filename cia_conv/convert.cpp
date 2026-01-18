@@ -39,7 +39,7 @@ auto convert_image(std::shared_ptr<io::ifstream>& in, std::string const& src, st
 
     auto const& info {img.info()};
     std::cout << std::format("source info: BPP: {}, Width: {}, Height: {} \n",
-                             (info.Format == image::format::RGBA ? 4 : 3), info.Size.Width, info.Size.Width);
+                             (info.Format == image::format::RGBA ? 4 : 3), info.Size.Width, info.Size.Height);
 
     if (!img.save(dst)) {
         return print_error("error saving image: " + dst);
