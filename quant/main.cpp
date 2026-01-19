@@ -61,9 +61,10 @@ auto main(int argc, char* argv[]) -> int
     auto const& info {img.info()};
     std::cout << std::format("source info: BPP: {}, Width: {}, Height: {} \n",
                              (info.Format == image::format::RGBA ? 4 : 3), info.Size.Width, info.Size.Height);
-
+    std::cout << std::format("Old color count:{}\n", img.count_colors());
     octree_quantizer quant {ncol};
     auto const       newImg {quant(img)};
+    std::cout << std::format("New color count:{}\n", newImg.count_colors());
     std::cout << "Used palette:\n";
     auto pal {quant.get_palette()};
     for (i32 i {0}; i < pal.size(); ++i) {
