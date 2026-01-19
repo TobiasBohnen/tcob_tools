@@ -23,6 +23,8 @@ auto main(int argc, char* argv[]) -> int
     program.add_argument("output");
     program.add_argument("ncol")
         .scan<'i', i32>();
+    program.add_argument("quantizer")
+        .default_value("neuquant");
 
     auto pl {platform::HeadlessInit()};
 
@@ -37,6 +39,7 @@ auto main(int argc, char* argv[]) -> int
     std::string const src {program.get("input")};
     std::string const dst {program.get("output")};
     auto const        ncol {program.get<i32>("ncol")};
+    auto const        quantizer {program.get("quantizer")};
 
     if (!io::is_file(src)) {
         return print_error("file not found: " + src);
@@ -62,18 +65,25 @@ auto main(int argc, char* argv[]) -> int
     std::cout << std::format("source info: BPP: {}, Width: {}, Height: {} \n",
                              (info.Format == image::format::RGBA ? 4 : 3), info.Size.Width, info.Size.Height);
     std::cout << std::format("Old color count:{}\n", img.count_colors());
-    octree_quantizer quant {ncol};
-    auto const       newImg {quant(img)};
-    std::cout << std::format("New color count:{}\n", newImg.count_colors());
-    std::cout << "Used palette:\n";
-    auto pal {quant.get_palette()};
-    for (i32 i {0}; i < pal.size(); ++i) {
-        std::cout << std::format("{}: {}\n", i, pal[i]);
-    }
-    if (!newImg.save(dst)) {
-        return print_error("error saving image: " + dst);
-    }
 
-    std::cout << "done!\n";
-    return 0;
+    stopwatch  sw {stopwatch::StartNew()};
+    auto const run {[&](auto&& quant) {
+        auto const newImg {quant(img)};
+        std::cout << std::format("New color count:{}\nUsed palette:\n", newImg.count_colors());
+
+        auto pal {quant.get_palette()};
+        for (i32 i {0}; i < pal.size(); ++i) {
+            std::cout << std::format("{}: {}\n", i, pal[i]);
+        }
+
+        auto const ms {sw.elapsed_milliseconds()};
+        if (newImg.save(dst)) {
+            std::cout << std::format("done in {}ms!\n", ms);
+            return 0;
+        }
+        return print_error("error saving image: " + dst);
+    }};
+
+    if (quantizer == "neuquant") { return run(neuquant {ncol}); }
+    return run(octree_quantizer {ncol});
 }
