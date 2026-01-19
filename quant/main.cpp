@@ -64,7 +64,11 @@ auto main(int argc, char* argv[]) -> int
 
     octree_quantizer quant {ncol};
     auto const       newImg {quant(img)};
-    std::cout << "quant done!\n";
+    std::cout << "Used palette:\n";
+    auto pal {quant.get_palette()};
+    for (i32 i {0}; i < pal.size(); ++i) {
+        std::cout << std::format("{}: {}\n", i, pal[i]);
+    }
     if (!newImg.save(dst)) {
         return print_error("error saving image: " + dst);
     }
