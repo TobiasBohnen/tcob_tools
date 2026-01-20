@@ -95,7 +95,7 @@ auto main(int argc, char* argv[]) -> int
             newImg = quant(img);
         }
 
-        std::cout << std::format("New color count:{}\nUsed palette:\n", newImg.count_colors());
+        std::cout << std::format("New color count:{}\n", newImg.count_colors());
         auto const ms {sw.elapsed_milliseconds()};
 
         if (newImg.save(output)) {
