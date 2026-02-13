@@ -20,7 +20,6 @@ Supported file formats:
 - pnm (read)
 - qoi (read, write)
 - tga (read, write)
-- webp (read, write)
 - bmp (read, write)
 - bsi (read, write)
 
