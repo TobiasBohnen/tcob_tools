@@ -45,7 +45,7 @@ auto main(int argc, char* argv[]) -> int
     program.add_argument("-d", "--dithering")
         .help("dithering algorithm")
         .default_value("none")
-        .choices("none", "floyd-steinberg", "fs", "bayer", "atkinson", "noise1", "noise8", "noise32")
+        .choices("none", "floyd-steinberg", "fs", "bayer2", "bayer4", "bayer8", "atkinson", "noise1", "noise8", "noise32")
         .metavar("ALGO");
 
     auto pl {platform::HeadlessInit()};
@@ -89,8 +89,12 @@ auto main(int argc, char* argv[]) -> int
         image newImg;
         auto  pal {T::GetPalette(img, colors)};
 
-        if (dithering == "bayer") {
-            newImg = bayer_dither {pal}(img);
+        if (dithering == "bayer2") {
+            newImg = bayer_dither {pal, bayer_matrix::Bayer2x2}(img);
+        } else if (dithering == "bayer4") {
+            newImg = bayer_dither {pal, bayer_matrix::Bayer4x4}(img);
+        } else if (dithering == "bayer8") {
+            newImg = bayer_dither {pal, bayer_matrix::Bayer8x8}(img);
         } else if (dithering == "atkinson") {
             newImg = atkinson_dither {pal}(img);
         } else if (dithering == "floyd-steinberg") {
