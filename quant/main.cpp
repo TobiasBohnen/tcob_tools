@@ -45,7 +45,7 @@ auto main(int argc, char* argv[]) -> int
     program.add_argument("-d", "--dithering")
         .help("dithering algorithm")
         .default_value("none")
-        .choices("none", "floyd-steinberg", "ordered", "atkinson")
+        .choices("none", "floyd-steinberg", "fs", "ordered", "atkinson", "noise1", "noise8", "noise32")
         .metavar("ALGO");
 
     auto pl {platform::HeadlessInit()};
@@ -61,8 +61,11 @@ auto main(int argc, char* argv[]) -> int
     std::string const input {program.get<std::string>("input")};
     std::string const output {program.get<std::string>("output")};
     i32 const         colors {program.get<i32>("--colors")};
+
     std::string const quantizer {program.get<std::string>("--quantizer")};
-    std::string const dithering {program.get<std::string>("--dithering")};
+
+    std::string dithering {program.get<std::string>("--dithering")};
+    if (dithering == "fs") { dithering = "floyd-steinberg"; }
 
     if (!io::is_file(input)) { return print_error("file not found: " + input); }
 
@@ -84,13 +87,20 @@ auto main(int argc, char* argv[]) -> int
 
     auto const doQuant {[&]<typename T>(T&& quant) { // NOLINT
         image newImg;
+        auto  pal {T::GetPalette(img, colors)};
 
         if (dithering == "ordered") {
-            newImg = ordered_dither {T::GetPalette(img, colors)}(img);
+            newImg = ordered_dither {pal}(img);
         } else if (dithering == "atkinson") {
-            newImg = atkinson_dither {T::GetPalette(img, colors)}(img);
+            newImg = atkinson_dither {pal}(img);
         } else if (dithering == "floyd-steinberg") {
-            newImg = floyd_steinberg_dither {T::GetPalette(img, colors)}(img);
+            newImg = floyd_steinberg_dither {pal}(img);
+        } else if (dithering == "noise1") {
+            newImg = value_noise_dither {pal, info.Size}(img);
+        } else if (dithering == "noise8") {
+            newImg = value_noise_dither {pal, info.Size / 8}(img);
+        } else if (dithering == "noise32") {
+            newImg = value_noise_dither {pal, info.Size / 32}(img);
         } else {
             newImg = quant(img);
         }
