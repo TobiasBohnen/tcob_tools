@@ -116,5 +116,5 @@ auto main(int argc, char* argv[]) -> int
     }};
 
     if (quantizer == "neuquant") { return doQuant(neuquant {colors}); }
-    return doQuant(octree_quantizer {colors});
+    return doQuant(octree_quant {colors});
 }
