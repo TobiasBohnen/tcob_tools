@@ -11,10 +11,48 @@ using namespace tcob;
 namespace io = tcob::io;
 using namespace tcob::gfx;
 
-auto print_error(std::string const& err) -> int
+auto print_error(string const& err) -> int
 {
     std::cout << err;
     return 1;
+}
+
+template <typename T>
+auto doQuant(string const& dithering, image const& img, i32 colors, stopwatch& sw, string const& output) -> i32
+{
+    auto const& info {img.info()};
+
+    image newImg;
+    auto  pal {T::GetPalette(img, colors)};
+
+    if (dithering == "bayer2") {
+        newImg = bayer_dither {pal, bayer_matrix::Bayer2x2}(img);
+    } else if (dithering == "bayer4") {
+        newImg = bayer_dither {pal, bayer_matrix::Bayer4x4}(img);
+    } else if (dithering == "bayer8") {
+        newImg = bayer_dither {pal, bayer_matrix::Bayer8x8}(img);
+    } else if (dithering == "atkinson") {
+        newImg = atkinson_dither {pal}(img);
+    } else if (dithering == "floyd-steinberg") {
+        newImg = floyd_steinberg_dither {pal}(img);
+    } else if (dithering == "noise1") {
+        newImg = value_noise_dither {pal, info.Size}(img);
+    } else if (dithering == "noise8") {
+        newImg = value_noise_dither {pal, info.Size / 8}(img);
+    } else if (dithering == "noise32") {
+        newImg = value_noise_dither {pal, info.Size / 32}(img);
+    } else {
+        newImg = nearest_neighbor_dither {pal}(img);
+    }
+
+    std::cout << std::format("New color count:{}\n", newImg.count_colors());
+    auto const ms {sw.elapsed_milliseconds()};
+
+    if (newImg.save(output)) {
+        std::cout << std::format("done in {}ms!\n", ms);
+        return 0;
+    }
+    return print_error("error saving image: " + output);
 }
 
 auto main(int argc, char* argv[]) -> int
@@ -58,13 +96,13 @@ auto main(int argc, char* argv[]) -> int
         return 1;
     }
 
-    std::string const input {program.get<std::string>("input")};
-    std::string const output {program.get<std::string>("output")};
-    i32 const         colors {program.get<i32>("--colors")};
+    string const input {program.get<string>("input")};
+    string const output {program.get<string>("output")};
+    i32 const    colors {program.get<i32>("--colors")};
 
-    std::string const quantizer {program.get<std::string>("--quantizer")};
+    string const quantizer {program.get<string>("--quantizer")};
 
-    std::string dithering {program.get<std::string>("--dithering")};
+    string dithering {program.get<string>("--dithering")};
     if (dithering == "fs") { dithering = "floyd-steinberg"; }
 
     if (!io::is_file(input)) { return print_error("file not found: " + input); }
@@ -85,40 +123,6 @@ auto main(int argc, char* argv[]) -> int
 
     stopwatch sw {stopwatch::StartNew()};
 
-    auto const doQuant {[&]<typename T>(T&& quant) { // NOLINT
-        image newImg;
-        auto  pal {T::GetPalette(img, colors)};
-
-        if (dithering == "bayer2") {
-            newImg = bayer_dither {pal, bayer_matrix::Bayer2x2}(img);
-        } else if (dithering == "bayer4") {
-            newImg = bayer_dither {pal, bayer_matrix::Bayer4x4}(img);
-        } else if (dithering == "bayer8") {
-            newImg = bayer_dither {pal, bayer_matrix::Bayer8x8}(img);
-        } else if (dithering == "atkinson") {
-            newImg = atkinson_dither {pal}(img);
-        } else if (dithering == "floyd-steinberg") {
-            newImg = floyd_steinberg_dither {pal}(img);
-        } else if (dithering == "noise1") {
-            newImg = value_noise_dither {pal, info.Size}(img);
-        } else if (dithering == "noise8") {
-            newImg = value_noise_dither {pal, info.Size / 8}(img);
-        } else if (dithering == "noise32") {
-            newImg = value_noise_dither {pal, info.Size / 32}(img);
-        } else {
-            newImg = quant(img);
-        }
-
-        std::cout << std::format("New color count:{}\n", newImg.count_colors());
-        auto const ms {sw.elapsed_milliseconds()};
-
-        if (newImg.save(output)) {
-            std::cout << std::format("done in {}ms!\n", ms);
-            return 0;
-        }
-        return print_error("error saving image: " + output);
-    }};
-
-    if (quantizer == "neuquant") { return doQuant(neuquant {colors}); }
-    return doQuant(octree_quant {colors});
+    if (quantizer == "neuquant") { return doQuant<neuquant>(dithering, img, colors, sw, output); }
+    return doQuant<octree_quant>(dithering, img, colors, sw, output);
 }
