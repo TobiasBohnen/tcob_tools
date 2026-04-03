@@ -42,7 +42,7 @@ auto doQuant(string const& dithering, image const& img, i32 colors, stopwatch& s
     } else if (dithering == "noise32") {
         newImg = value_noise_dither {pal, info.Size / 32}(img);
     } else {
-        newImg = nearest_neighbor_dither {pal}(img);
+        newImg = no_dither {pal}(img);
     }
 
     std::cout << std::format("New color count:{}\n", newImg.count_colors());
