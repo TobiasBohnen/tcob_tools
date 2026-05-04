@@ -24,15 +24,7 @@ void ParticleSystemEditor::on_start()
     auto* resGrp {resMgr.get_group("res")};
     _system.Material = resGrp->get<material>("ParticleMat");
 
-    image texAtlas {image::CreateEmpty({2, 2}, image::format::RGBA)};
-    for (usize i {0}; i < 4; ++i) {
-        texAtlas.set_pixel(i, colors::White);
-    }
-    _texAtlas->regions()["2x2"] = texture_region {.UVRect = {0, 0, 1, 1}, .Level = 0};
-
-    _texAtlas->resize(texAtlas.info().Size, 1, texture::format::RGBA8);
-    _texAtlas->update_data(texAtlas, 0);
-    _system.Material->first_pass().Texture = _texAtlas;
+    build_particle_atlas();
 
     _ui                = std::make_shared<main_ui>(window(), *resGrp, _texAtlas->regions());
     root_node().Entity = _ui;
@@ -91,4 +83,104 @@ void ParticleSystemEditor::on_key_down(keyboard::event const& ev)
     default:
         break;
     }
+}
+
+static auto to_uv(rect_f const& px, size_f const& atlasSize) -> rect_f
+{
+    return rect_f {
+        px.left() / atlasSize.Width,
+        px.top() / atlasSize.Height,
+        px.width() / atlasSize.Width,
+        px.height() / atlasSize.Height};
+}
+
+void ParticleSystemEditor::build_particle_atlas()
+{
+    constexpr size_i ATLAS_SIZE {512, 512};
+    constexpr size_f ATLAS_SIZE_F {512.0f, 512.0f};
+    constexpr f32    GAP {2};
+
+    canvas canvas;
+
+    canvas.begin_frame(ATLAS_SIZE, 1.0f);
+    canvas.clear(colors::Transparent);
+
+    canvas.set_fill_style(colors::White);
+    canvas.set_shape_antialias(false);
+    canvas.set_edge_antialias(false);
+
+    f32 x {2};
+
+    {
+        rect_f r {x, 2.0f, 64.0f, 64.0f};
+
+        canvas.begin_path();
+        canvas.circle(
+            {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)},
+            r.width() * 0.5f);
+        canvas.fill();
+
+        _texAtlas->regions()["circle"] = texture_region {
+            .UVRect = to_uv(r, ATLAS_SIZE_F),
+            .Level  = 0};
+
+        x += r.width() + GAP;
+    }
+    {
+        rect_f r {x, 2.0f, 32.0f, 32.0f};
+
+        canvas.begin_path();
+        canvas.rect(r);
+        canvas.fill();
+
+        _texAtlas->regions()["square"] = texture_region {
+            .UVRect = to_uv(r, ATLAS_SIZE_F),
+            .Level  = 0};
+
+        x += r.width() + GAP;
+    }
+    {
+        rect_f r {x, 2.0f, 32.0f, 32.0f};
+
+        canvas.begin_path();
+        canvas.triangle(
+            {r.left() + (r.width() * 0.5f), r.top()},
+            {r.left(), r.top() + r.height()},
+            {r.left() + r.width(), r.top() + r.height()});
+        canvas.fill();
+
+        _texAtlas->regions()["triangle"] = texture_region {
+            .UVRect = to_uv(r, ATLAS_SIZE_F),
+            .Level  = 0};
+
+        x += r.width() + GAP;
+    }
+    {
+        rect_f r {x, 2.0f, 48.0f, 48.0f};
+
+        canvas.begin_path();
+        canvas.star(
+            {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)},
+            r.width() * 0.5f,
+            r.width() * 0.25f,
+            5);
+        canvas.fill();
+
+        _texAtlas->regions()["star"] = texture_region {
+            .UVRect = to_uv(r, ATLAS_SIZE_F),
+            .Level  = 0};
+
+        x += r.width() + GAP;
+    }
+
+    canvas.end_frame();
+
+    auto texAtlas {canvas.get_texture()->copy_to_image(0)};
+    texAtlas.flip_vertically();
+    std::ignore = texAtlas.save("atlas.png");
+
+    _texAtlas->resize(texAtlas.info().Size, 1, texture::format::RGBA8);
+    _texAtlas->update_data(texAtlas, 0);
+
+    _system.Material->first_pass().Texture = _texAtlas;
 }

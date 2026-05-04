@@ -26,8 +26,6 @@ public:
     signal<> SaveRequested;
     signal<> QuitRequested;
 
-    void add_emitter(particle_emitter::settings const& settings);
-
 private:
     void rebuild_emitter_tab(tab_container& tabs, isize emiIdx);
     void build_emitter_settings(panel& parent, isize emiIdx);
@@ -36,8 +34,8 @@ private:
     void create_styles(assets::group const& resGrp);
     void notify(isize emiIdx);
 
-    window&                                 _wnd;
-    std::vector<string>                     _texRegions;
-    assets::group const&                    _resGrp;
-    std::vector<particle_emitter::settings> _settings;
+    window&                                _wnd;
+    std::vector<string>                    _texRegions;
+    assets::group const&                   _resGrp;
+    std::deque<particle_emitter::settings> _settings;
 };

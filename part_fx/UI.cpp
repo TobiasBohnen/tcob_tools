@@ -69,16 +69,6 @@ main_ui::main_ui(window& wnd, assets::group const& resGrp, std::unordered_map<st
 
 ////////////////////////////////////////////////////////////
 
-void main_ui::add_emitter(particle_emitter::settings const& settings)
-{
-    auto& tabs {*dynamic_cast<tab_container*>(find_widget_by_name("EmitterTabs"))};
-    _settings.push_back(settings);
-    isize const emiIdx {static_cast<isize>(_settings.size()) - 1};
-    rebuild_emitter_tab(tabs, emiIdx);
-}
-
-////////////////////////////////////////////////////////////
-
 void main_ui::notify(isize emiIdx)
 {
     EmitterSettingsChanged({.Index = emiIdx, .Settings = _settings[emiIdx]});
@@ -357,9 +347,9 @@ void main_ui::build_template_settings(panel& parent, isize emiIdx)
                 items.push_back({tr});
             }
         });
-        t.TextureRegion = _texRegions[0];
+        t.TextureRegion = "square";
+        ddl.select_item("square");
 
-        ddl.SelectedItemIndex = 0;
         ddl.SelectedItemIndex.Changed.connect([&t, &ddl, notify](isize idx) {
             if (idx >= 0 && idx < static_cast<isize>(ddl.Items->size())) {
                 t.TextureRegion = (*ddl.Items)[idx].Text;

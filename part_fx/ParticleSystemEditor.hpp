@@ -24,6 +24,8 @@ protected:
     void on_key_down(keyboard::event const& ev) override;
 
 private:
+    void build_particle_atlas();
+
     particle_system                _system;
     std::vector<particle_emitter*> _emitters;
     asset_owner_ptr<texture>       _texAtlas;
