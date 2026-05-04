@@ -94,93 +94,120 @@ static auto to_uv(rect_f const& px, size_f const& atlasSize) -> rect_f
         px.height() / atlasSize.Height};
 }
 
+struct atlas_shape {
+    string                                      Name;
+    size_f                                      Size;
+    std::function<void(canvas&, rect_f const&)> Draw;
+};
+
 void ParticleSystemEditor::build_particle_atlas()
 {
     constexpr size_i ATLAS_SIZE {512, 512};
     constexpr size_f ATLAS_SIZE_F {512.0f, 512.0f};
-    constexpr f32    GAP {2};
+    constexpr f32    GAP {2.0f};
+    constexpr f32    Y {2.0f};
+
+    static std::array<atlas_shape, 10> const SHAPES {{
+        {.Name = "circle", .Size = {64, 64}, .Draw = [](canvas& c, rect_f const& r) {
+             c.circle({r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)}, r.width() * 0.5f);
+         }},
+        {.Name = "square", .Size = {32, 32}, .Draw = [](canvas& c, rect_f const& r) {
+             c.rect(r);
+         }},
+        {.Name = "triangle", .Size = {32, 32}, .Draw = [](canvas& c, rect_f const& r) {
+             c.triangle(
+                 {r.left() + (r.width() * 0.5f), r.top()},
+                 {r.left(), r.top() + r.height()},
+                 {r.left() + r.width(), r.top() + r.height()});
+         }},
+        {.Name = "star", .Size = {48, 48}, .Draw = [](canvas& c, rect_f const& r) {
+             c.star(
+                 {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)},
+                 r.width() * 0.5f, r.width() * 0.25f, 5);
+         }},
+        {.Name = "ring", .Size = {48, 48}, .Draw = [](canvas& c, rect_f const& r) {
+             point_f const center {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)};
+             c.circle(center, r.width() * 0.5f);
+             c.set_path_winding(solidity::Hole);
+             c.circle(center, r.width() * 0.25f);
+         }},
+        {.Name = "diamond", .Size = {48, 48}, .Draw = [](canvas& c, rect_f const& r) {
+             point_f const center {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)};
+             c.move_to({center.X, r.top()});
+             c.line_to({r.left() + r.width(), center.Y});
+             c.line_to({center.X, r.top() + r.height()});
+             c.line_to({r.left(), center.Y});
+             c.close_path();
+         }},
+        {.Name = "hexagon", .Size = {48, 48}, .Draw = [](canvas& c, rect_f const& r) {
+             c.regular_polygon(
+                 {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)},
+                 {r.width() * 0.5f, r.height() * 0.5f}, 6);
+         }},
+        {.Name = "sparkle", .Size = {48, 48}, .Draw = [](canvas& c, rect_f const& r) {
+             c.star(
+                 {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)},
+                 r.width() * 0.5f, r.width() * 0.15f, 4);
+         }},
+        {.Name = "cross", .Size = {48, 48}, .Draw = [](canvas& c, rect_f const& r) {
+             f32 const t {r.width() / 3.0f};
+             f32 const x0 {r.left()};
+             f32 const y0 {r.top()};
+             c.move_to({x0 + t, y0});
+             c.line_to({x0 + (t * 2), y0});
+             c.line_to({x0 + (t * 2), y0 + t});
+             c.line_to({x0 + (t * 3), y0 + t});
+             c.line_to({x0 + (t * 3), y0 + (t * 2)});
+             c.line_to({x0 + (t * 2), y0 + (t * 2)});
+             c.line_to({x0 + (t * 2), y0 + (t * 3)});
+             c.line_to({x0 + t, y0 + (t * 3)});
+             c.line_to({x0 + t, y0 + (t * 2)});
+             c.line_to({x0, y0 + (t * 2)});
+             c.line_to({x0, y0 + t});
+             c.line_to({x0 + t, y0 + t});
+             c.close_path();
+         }},
+        {.Name = "arrow", .Size = {48, 48}, .Draw = [](canvas& c, rect_f const& r) {
+             f32 const mx {r.left() + (r.width() * 0.5f)};
+             f32 const my {r.top() + (r.height() * 0.5f)};
+             f32 const sw {r.width() * 0.25f};              // shaft half-width
+             f32 const hy {r.top() + (r.height() * 0.45f)}; // head/shaft split
+             c.move_to({mx, r.top()});
+             c.line_to({r.left() + r.width(), hy});
+             c.line_to({mx + sw, hy});
+             c.line_to({mx + sw, r.top() + r.height()});
+             c.line_to({mx - sw, r.top() + r.height()});
+             c.line_to({mx - sw, hy});
+             c.line_to({r.left(), hy});
+             c.close_path();
+         }},
+    }};
 
     canvas canvas;
-
     canvas.begin_frame(ATLAS_SIZE, 1.0f);
     canvas.clear(colors::Transparent);
-
     canvas.set_fill_style(colors::White);
     canvas.set_shape_antialias(false);
     canvas.set_edge_antialias(false);
 
-    f32 x {2};
-
-    {
-        rect_f r {x, 2.0f, 64.0f, 64.0f};
-
+    f32 x {GAP};
+    for (auto const& shape : SHAPES) {
+        rect_f const r {x, Y, shape.Size.Width, shape.Size.Height};
         canvas.begin_path();
-        canvas.circle(
-            {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)},
-            r.width() * 0.5f);
+        shape.Draw(canvas, r);
         canvas.fill();
-
-        _texAtlas->regions()["circle"] = texture_region {
+        _texAtlas->regions()[shape.Name] = texture_region {
             .UVRect = to_uv(r, ATLAS_SIZE_F),
             .Level  = 0};
-
-        x += r.width() + GAP;
-    }
-    {
-        rect_f r {x, 2.0f, 32.0f, 32.0f};
-
-        canvas.begin_path();
-        canvas.rect(r);
-        canvas.fill();
-
-        _texAtlas->regions()["square"] = texture_region {
-            .UVRect = to_uv(r, ATLAS_SIZE_F),
-            .Level  = 0};
-
-        x += r.width() + GAP;
-    }
-    {
-        rect_f r {x, 2.0f, 32.0f, 32.0f};
-
-        canvas.begin_path();
-        canvas.triangle(
-            {r.left() + (r.width() * 0.5f), r.top()},
-            {r.left(), r.top() + r.height()},
-            {r.left() + r.width(), r.top() + r.height()});
-        canvas.fill();
-
-        _texAtlas->regions()["triangle"] = texture_region {
-            .UVRect = to_uv(r, ATLAS_SIZE_F),
-            .Level  = 0};
-
-        x += r.width() + GAP;
-    }
-    {
-        rect_f r {x, 2.0f, 48.0f, 48.0f};
-
-        canvas.begin_path();
-        canvas.star(
-            {r.left() + (r.width() * 0.5f), r.top() + (r.height() * 0.5f)},
-            r.width() * 0.5f,
-            r.width() * 0.25f,
-            5);
-        canvas.fill();
-
-        _texAtlas->regions()["star"] = texture_region {
-            .UVRect = to_uv(r, ATLAS_SIZE_F),
-            .Level  = 0};
-
-        x += r.width() + GAP;
+        x += shape.Size.Width + GAP;
     }
 
     canvas.end_frame();
 
-    auto texAtlas {canvas.get_texture()->copy_to_image(0)};
-    texAtlas.flip_vertically();
-    std::ignore = texAtlas.save("atlas.png");
-
-    _texAtlas->resize(texAtlas.info().Size, 1, texture::format::RGBA8);
-    _texAtlas->update_data(texAtlas, 0);
-
+    auto img {canvas.get_texture()->copy_to_image(0)};
+    img.flip_vertically();
+    std::ignore = img.save("atlas.png");
+    _texAtlas->resize(img.info().Size, 1, texture::format::RGBA8);
+    _texAtlas->update_data(img, 0);
     _system.Material->first_pass().Texture = _texAtlas;
 }
