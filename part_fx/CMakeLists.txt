@@ -13,10 +13,10 @@ set_target_properties(part_fx PROPERTIES
 
 if(EMSCRIPTEN)
     target_compile_options(part_fx PRIVATE -fexperimental-library -pthread)
-    configure_file(particlesystemeditor.zip ${CMAKE_BINARY_DIR}/particlesystemeditor.zip COPYONLY)
-    target_link_options(part_fx PRIVATE -sFULL_ES3 -sASSERTIONS -sPTHREAD_POOL_SIZE=8 -sASYNCIFY -sALLOW_MEMORY_GROWTH -pthread --embed-file particlesystemeditor.zip)
+    configure_file(part_fx.zip ${CMAKE_BINARY_DIR}/part_fx.zip COPYONLY)
+    target_link_options(part_fx PRIVATE -sFULL_ES3 -sASSERTIONS -sPTHREAD_POOL_SIZE=8 -sASYNCIFY -sALLOW_MEMORY_GROWTH -pthread --embed-file part_fx.zip)
 else()
-    configure_file(particlesystemeditor.zip ${CMAKE_BINARY_DIR}/../../x64/particlesystemeditor.zip COPYONLY)
+    configure_file(part_fx.zip ${CMAKE_BINARY_DIR}/../../x64/part_fx.zip COPYONLY)
 endif()
 
 if(NOT TCOB_BUILD_SHARED)

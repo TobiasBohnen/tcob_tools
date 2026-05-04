@@ -16,14 +16,15 @@ struct emitter_changed_event {
 
 class main_ui : public form<dock_layout> {
 public:
-    explicit main_ui(window& wnd, assets::group const& resGrp);
+    explicit main_ui(window& wnd, assets::group const& resGrp, std::unordered_map<string, texture_region> const& texRegions);
 
     signal<emitter_changed_event const> EmitterSettingsChanged;
     signal<>                            EmitterAdded;
     signal<isize const>                 EmitterRemoved;
-    signal<>                            StartRequested;
-    signal<>                            StopRequested;
-    signal<>                            RestartRequested;
+
+    signal<> RestartRequested;
+    signal<> SaveRequested;
+    signal<> QuitRequested;
 
     void add_emitter(particle_emitter::settings const& settings);
 
@@ -36,6 +37,7 @@ private:
     void notify(isize emiIdx);
 
     window&                                 _wnd;
+    std::vector<string>                     _texRegions;
     assets::group const&                    _resGrp;
     std::vector<particle_emitter::settings> _settings;
 };

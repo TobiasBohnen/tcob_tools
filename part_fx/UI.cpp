@@ -10,7 +10,7 @@ using namespace std::chrono_literals;
 
 ////////////////////////////////////////////////////////////
 
-main_ui::main_ui(window& wnd, assets::group const& resGrp)
+main_ui::main_ui(window& wnd, assets::group const& resGrp, std::unordered_map<string, texture_region> const& texRegions)
     : form<dock_layout> {{.Name = "particle_editor", .Bounds = rect_i {wnd.bounds().width() * 2 / 3, 0, wnd.bounds().width() / 3, wnd.bounds().height()}}}
     , _wnd {wnd}
     , _resGrp {resGrp}
@@ -20,7 +20,7 @@ main_ui::main_ui(window& wnd, assets::group const& resGrp)
     // toolbar
     auto& toolbar {create_container<panel>(dock_style::Top, "Toolbar")};
     toolbar.Flex = {.Width = 100_pct, .Height = 5_pct};
-    auto& toolbarLayout {toolbar.create_layout<grid_layout>(size_i {5, 1})};
+    auto& toolbarLayout {toolbar.create_layout<grid_layout>(size_i {6, 1})};
 
     auto& btnAddEmitter {toolbarLayout.create_widget<button>({{0, 0}, {1, 1}}, "BtnAdd")};
     btnAddEmitter.Label = "Add";
@@ -28,22 +28,21 @@ main_ui::main_ui(window& wnd, assets::group const& resGrp)
     auto& btnRemoveEmitter {toolbarLayout.create_widget<button>({{1, 0}, {1, 1}}, "BtnRemove")};
     btnRemoveEmitter.Label = "Remove";
 
-    auto& btnStart {toolbarLayout.create_widget<button>({{2, 0}, {1, 1}}, "BtnStart")};
-    btnStart.Label = "Start";
-
-    auto& btnStop {toolbarLayout.create_widget<button>({{3, 0}, {1, 1}}, "BtnStop")};
-    btnStop.Label = "Stop";
-
-    auto& btnRestart {toolbarLayout.create_widget<button>({{4, 0}, {1, 1}}, "BtnRestart")};
+    auto& btnRestart {toolbarLayout.create_widget<button>({{2, 0}, {1, 1}}, "BtnRestart")};
     btnRestart.Label = "Restart";
+    btnRestart.Click.connect([&] { RestartRequested(); });
+
+    auto& btnSave {toolbarLayout.create_widget<button>({{3, 0}, {1, 1}}, "BtnSave")};
+    btnSave.Label = "Save";
+    btnSave.Click.connect([&] { SaveRequested(); });
+
+    auto& btnQuit {toolbarLayout.create_widget<button>({{5, 0}, {1, 1}}, "BtnQuit")};
+    btnQuit.Label = "Quit";
+    btnQuit.Click.connect([&] { QuitRequested(); });
 
     // emitter tabs
     auto& tabs {create_container<tab_container>(dock_style::Fill, "EmitterTabs")};
     tabs.Flex = {.Width = 100_pct, .Height = 95_pct};
-
-    btnStart.Click.connect([&] { StartRequested(); });
-    btnStop.Click.connect([&] { StopRequested(); });
-    btnRestart.Click.connect([&] { RestartRequested(); });
 
     btnAddEmitter.Click.connect([&] {
         _settings.push_back({});
@@ -62,6 +61,10 @@ main_ui::main_ui(window& wnd, assets::group const& resGrp)
         _settings.erase(_settings.begin() + activeIdx);
         EmitterRemoved(activeIdx);
     });
+
+    for (auto const& [k, v] : texRegions) {
+        _texRegions.push_back(k);
+    }
 }
 
 ////////////////////////////////////////////////////////////
@@ -141,16 +144,21 @@ void main_ui::build_emitter_settings(panel& parent, isize emiIdx)
     {
         auto& lbl {gl.create_widget<label>({{0, 1}, {1, 1}}, "LblSpawnPos")};
         lbl.Label = "Spawn X,Y";
+
         auto& spnX {gl.create_widget<spinner>({{1, 1}, {1, 1}}, "SpawnX")};
-        spnX.Min   = -10000;
+        spnX.Min   = 0;
         spnX.Max   = 10000;
-        spnX.Step  = 1;
-        spnX.Value = s.SpawnArea.left();
+        spnX.Step  = 10;
+        spnX.Value = s.SpawnArea.left() == 0 ? _wnd.bounds().width() / 3 : s.SpawnArea.left();
+
         auto& spnY {gl.create_widget<spinner>({{2, 1}, {1, 1}}, "SpawnY")};
-        spnY.Min   = -10000;
+        spnY.Min   = 0;
         spnY.Max   = 10000;
-        spnY.Step  = 1;
-        spnY.Value = s.SpawnArea.top();
+        spnY.Step  = 10;
+        spnY.Value = s.SpawnArea.top() == 0 ? _wnd.bounds().center().Y : s.SpawnArea.top();
+
+        s.SpawnArea = {static_cast<f32>(*spnX.Value), static_cast<f32>(*spnY.Value), s.SpawnArea.width(), s.SpawnArea.height()};
+
         spnX.Value.Changed.connect([&s, &spnY, notify](f32 v) {
             s.SpawnArea = {v, static_cast<f32>(*spnY.Value), s.SpawnArea.width(), s.SpawnArea.height()};
             notify();
@@ -164,16 +172,19 @@ void main_ui::build_emitter_settings(panel& parent, isize emiIdx)
     {
         auto& lbl {gl.create_widget<label>({{0, 2}, {1, 1}}, "LblSpawnSize")};
         lbl.Label = "Spawn W,H";
+
         auto& spnW {gl.create_widget<spinner>({{1, 2}, {1, 1}}, "SpawnW")};
         spnW.Min   = 0;
         spnW.Max   = 10000;
         spnW.Step  = 1;
         spnW.Value = s.SpawnArea.width();
+
         auto& spnH {gl.create_widget<spinner>({{2, 2}, {1, 1}}, "SpawnH")};
         spnH.Min   = 0;
         spnH.Max   = 10000;
         spnH.Step  = 1;
         spnH.Value = s.SpawnArea.height();
+
         spnW.Value.Changed.connect([&s, &spnH, notify](f32 v) {
             s.SpawnArea = {s.SpawnArea.left(), s.SpawnArea.top(), v, static_cast<f32>(*spnH.Value)};
             notify();
@@ -225,7 +236,7 @@ void main_ui::build_pattern_settings(panel& parent, isize emiIdx)
     auto& lblCount {gl.create_widget<label>({{0, row}, {1, 1}}, "LblCount")};
     lblCount.Label = "Count";
     auto& spnCount {gl.create_widget<spinner>({{1, row}, {2, 1}}, "SpnCount")};
-    spnCount.Min  = 1;
+    spnCount.Min  = 0;
     spnCount.Max  = 10000;
     spnCount.Step = 10;
     ++row;
@@ -241,7 +252,7 @@ void main_ui::build_pattern_settings(panel& parent, isize emiIdx)
     auto& lblRepeats {gl.create_widget<label>({{0, row}, {1, 1}}, "LblRepeats")};
     lblRepeats.Label = "Repeats";
     auto& spnRepeats {gl.create_widget<spinner>({{1, row}, {2, 1}}, "SpnRepeats")};
-    spnRepeats.Min  = 1;
+    spnRepeats.Min  = -1;
     spnRepeats.Max  = 10000;
     spnRepeats.Step = 1;
     ++row;
@@ -341,12 +352,13 @@ void main_ui::build_template_settings(panel& parent, isize emiIdx)
         auto& lbl {gl.create_widget<label>({{0, row}, {1, 1}}, "LblTexReg")};
         lbl.Label = "TexRegion";
         auto& ddl {gl.create_widget<drop_down_list>({{1, row}, {2, 1}}, "TexRegion")};
-        ddl.Items.mutate([](auto& items) {
-            items.push_back({"2x2"});
-            items.push_back({"snowflake"});
-            items.push_back({"particle"});
+        ddl.Items.mutate([&](auto& items) {
+            for (auto const& tr : _texRegions) {
+                items.push_back({tr});
+            }
         });
-        t.TextureRegion       = "2x2";
+        t.TextureRegion = _texRegions[0];
+
         ddl.SelectedItemIndex = 0;
         ddl.SelectedItemIndex.Changed.connect([&t, &ddl, notify](isize idx) {
             if (idx >= 0 && idx < static_cast<isize>(ddl.Items->size())) {

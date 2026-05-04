@@ -22,9 +22,19 @@ void ParticleSystemEditor::on_start()
 
     auto& resMgr {parent().library()};
     auto* resGrp {resMgr.get_group("res")};
-    _system.Material = resGrp->get<material>("QuadParticleMat");
+    _system.Material = resGrp->get<material>("ParticleMat");
 
-    _ui                = std::make_shared<main_ui>(window(), *resGrp);
+    image texAtlas {image::CreateEmpty({2, 2}, image::format::RGBA)};
+    for (usize i {0}; i < 4; ++i) {
+        texAtlas.set_pixel(i, colors::White);
+    }
+    _texAtlas->regions()["2x2"] = texture_region {.UVRect = {0, 0, 1, 1}, .Level = 0};
+
+    _texAtlas->resize(texAtlas.info().Size, 1, texture::format::RGBA8);
+    _texAtlas->update_data(texAtlas, 0);
+    _system.Material->first_pass().Texture = _texAtlas;
+
+    _ui                = std::make_shared<main_ui>(window(), *resGrp, _texAtlas->regions());
     root_node().Entity = _ui;
     _ui->EmitterAdded.connect([&] {
         auto& emi {_system.create_emitter()};
@@ -40,9 +50,16 @@ void ParticleSystemEditor::on_start()
         _emitters[ev.Index]->Settings = ev.Settings;
     });
 
-    _ui->StartRequested.connect([&] { _system.start(); });
-    _ui->StopRequested.connect([&] { _system.stop(); });
     _ui->RestartRequested.connect([&] { _system.restart(); });
+    _ui->SaveRequested.connect([&] {
+        data::array save;
+        for (usize i {0}; i < _emitters.size(); ++i) {
+            save.add(_emitters[i]->Settings);
+        }
+        save.save("save.json");
+    });
+
+    _ui->QuitRequested.connect([&] { parent().pop_current_scene(); });
 }
 
 void ParticleSystemEditor::on_draw_to(render_target& target, transform const& xform)

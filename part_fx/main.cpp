@@ -21,20 +21,20 @@ auto main(void) -> int
     video.RenderSystem         = "OPENGLES30";
     config["video"]            = video;
 
-    tcob::game game {{.Name           = "ParticleSystemEditor",
+    tcob::game game {{.Name           = "part_fx",
                       .LogFile        = "stdout",
                       .ConfigDefaults = config,
                       .WorkerThreads  = 8}};
 #else
 auto main(int /* argc */, char* argv[]) -> int
 {
-    tcob::game game {{.Name    = "ParticleSystemEditor",
+    tcob::game game {{.Name    = "part_fx",
                       .LogFile = "stdout"}};
 #endif
 
     auto& resMgr {game.library()};
     auto& resGrp {resMgr.create_or_get_group("res")};
-    resGrp.mount("./particlesystemeditor.zip");
+    resGrp.mount("./part_fx.zip");
     resMgr.load_all_groups();
 
     game.push_scene<ParticleSystemEditor>();
