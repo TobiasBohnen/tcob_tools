@@ -10,11 +10,10 @@ using namespace std::chrono_literals;
 
 ////////////////////////////////////////////////////////////
 
-main_ui::main_ui(window& wnd, assets::group const& resGrp, particle_system& system)
+main_ui::main_ui(window& wnd, assets::group const& resGrp)
     : form<dock_layout> {{.Name = "particle_editor", .Bounds = rect_i {wnd.bounds().width() * 2 / 3, 0, wnd.bounds().width() / 3, wnd.bounds().height()}}}
     , _wnd {wnd}
     , _resGrp {resGrp}
-    , _system {system}
 {
     create_styles(resGrp);
 
@@ -42,110 +41,157 @@ main_ui::main_ui(window& wnd, assets::group const& resGrp, particle_system& syst
     auto& tabs {create_container<tab_container>(dock_style::Fill, "EmitterTabs")};
     tabs.Flex = {.Width = 100_pct, .Height = 95_pct};
 
-    btnStart.Click.connect([&] { _system.start(); });
-    btnStop.Click.connect([&] { _system.stop(); });
-    btnRestart.Click.connect([&] { _system.restart(); });
+    btnStart.Click.connect([&] { StartRequested(); });
+    btnStop.Click.connect([&] { StopRequested(); });
+    btnRestart.Click.connect([&] { RestartRequested(); });
 
     btnAddEmitter.Click.connect([&] {
-        auto&        emi {_system.create_emitter()};
-        string const name {"Emi_" + std::to_string(_emitters.size() + 1)};
-        _emitters.push_back(&emi);
-        rebuild_emitter_tab(tabs, emi, name);
+        _settings.push_back({});
+        isize const  emiIdx {static_cast<isize>(_settings.size()) - 1};
+        string const name {"Emi_" + std::to_string(_settings.size())};
+        rebuild_emitter_tab(tabs, emiIdx);
+        EmitterAdded();
+        notify(emiIdx);
     });
 
     btnRemoveEmitter.Click.connect([&, tabs = &tabs] {
-        if (_emitters.empty()) { return; }
+        if (_settings.empty()) { return; }
         isize const activeIdx {*tabs->ActiveTabIndex};
-        if (activeIdx < 0 || activeIdx >= static_cast<isize>(_emitters.size())) { return; }
-        _system.remove_emitter(*_emitters[activeIdx]);
+        if (activeIdx < 0 || activeIdx >= static_cast<isize>(_settings.size())) { return; }
         tabs->remove_tab(activeIdx);
-        _emitters.erase(_emitters.begin() + activeIdx);
+        _settings.erase(_settings.begin() + activeIdx);
+        EmitterRemoved(activeIdx);
     });
 }
 
 ////////////////////////////////////////////////////////////
 
-void main_ui::rebuild_emitter_tab(tab_container& tabs, particle_emitter& emi, string const& tabName)
+void main_ui::add_emitter(particle_emitter::settings const& settings)
 {
+    auto& tabs {*dynamic_cast<tab_container*>(find_widget_by_name("EmitterTabs"))};
+    _settings.push_back(settings);
+    isize const emiIdx {static_cast<isize>(_settings.size()) - 1};
+    rebuild_emitter_tab(tabs, emiIdx);
+}
+
+////////////////////////////////////////////////////////////
+
+void main_ui::notify(isize emiIdx)
+{
+    EmitterSettingsChanged({.Index = emiIdx, .Settings = _settings[emiIdx]});
+}
+
+////////////////////////////////////////////////////////////
+
+void main_ui::rebuild_emitter_tab(tab_container& tabs, isize emiIdx)
+{
+    string const tabName {"Emi_" + std::to_string(emiIdx + 1)};
+
     auto& tabPanel {tabs.create_tab<panel>(tabName)};
     tabPanel.ScrollEnabled = true;
 
     auto& layout {tabPanel.create_layout<dock_layout>()};
-    auto& acc {layout.create_widget<accordion>(dock_style::Fill, "Acc_" + std::to_string(emi.id()))};
+    auto& acc {layout.create_widget<accordion>(dock_style::Fill, "Acc_" + std::to_string(emiIdx))};
     acc.MaximizeActiveSection = true;
 
     {
         auto& sec {acc.create_section<panel>("Emitter", {.Text = "Emitter"})};
-        build_emitter_settings(sec, emi);
+        build_emitter_settings(sec, emiIdx);
     }
     {
         auto& sec {acc.create_section<panel>("Pattern", {.Text = "Pattern"})};
-        build_pattern_settings(sec, emi);
+        build_pattern_settings(sec, emiIdx);
     }
     {
         auto& sec {acc.create_section<panel>("Template", {.Text = "Particle Template"})};
         sec.ScrollEnabled = true;
-        build_template_settings(sec, emi);
+        build_template_settings(sec, emiIdx);
     }
 }
 
 ////////////////////////////////////////////////////////////
 
-void main_ui::build_emitter_settings(panel& parent, particle_emitter& emi)
+void main_ui::build_emitter_settings(panel& parent, isize emiIdx)
 {
-    auto& gl {parent.create_layout<grid_layout>(size_i {3, 3})};
+    auto  notify {[this, emiIdx] { this->notify(emiIdx); }};
+    auto& s {_settings[emiIdx]};
+    auto& gl {parent.create_layout<grid_layout>(size_i {0, 17}, true)};
 
     // Lifetime
     {
         auto& lbl {gl.create_widget<label>({{0, 0}, {1, 1}}, "LblEmiLife")};
         lbl.Label = "Lifetime(ms)";
         auto& tog {gl.create_widget<toggle>({{1, 0}, {1, 1}}, "HasLifetime")};
-        tog.Checked = emi.Settings.Lifetime.has_value();
+        tog.Checked = s.Lifetime.has_value();
         auto& spn {gl.create_widget<spinner>({{2, 0}, {1, 1}}, "SpnLifetime")};
         spn.Min   = 0;
         spn.Max   = 60000;
         spn.Step  = 100;
-        spn.Value = emi.Settings.Lifetime ? static_cast<f32>(emi.Settings.Lifetime->count()) : 1000.f;
-        spn.Value.Changed.connect([&emi, &tog](f32 v) {
-            if (*tog.Checked) { emi.Settings.Lifetime = milliseconds {v}; }
+        spn.Value = s.Lifetime ? static_cast<f32>(s.Lifetime->count()) : 1000.f;
+        spn.Value.Changed.connect([&s, &tog, notify](f32 v) {
+            if (*tog.Checked) { s.Lifetime = milliseconds {v}; }
+            notify();
         });
-        tog.Checked.Changed.connect([&emi, &spn](bool v) {
-            emi.Settings.Lifetime = v ? std::optional<milliseconds> {milliseconds {*spn.Value}} : std::nullopt;
+        tog.Checked.Changed.connect([&s, &spn, notify](bool v) {
+            s.Lifetime = v ? std::optional<milliseconds> {milliseconds {*spn.Value}} : std::nullopt;
+            notify();
         });
     }
-    // Spawn Position
+    // Spawn X,Y
     {
         auto& lbl {gl.create_widget<label>({{0, 1}, {1, 1}}, "LblSpawnPos")};
         lbl.Label = "Spawn X,Y";
-        auto& tb {gl.create_widget<text_box>({{1, 1}, {2, 1}}, "SpawnPos")};
-        tb.Text = std::format("{},{}", emi.Settings.SpawnArea.left(), emi.Settings.SpawnArea.top());
-        tb.Submit.connect([&emi, &tb](auto const&) {
-            f32 x {}, y {};
-            if (std::sscanf(tb.Text->c_str(), "%f,%f", &x, &y) == 2) {
-                emi.Settings.SpawnArea = {x, y, emi.Settings.SpawnArea.width(), emi.Settings.SpawnArea.height()};
-            }
+        auto& spnX {gl.create_widget<spinner>({{1, 1}, {1, 1}}, "SpawnX")};
+        spnX.Min   = -10000;
+        spnX.Max   = 10000;
+        spnX.Step  = 1;
+        spnX.Value = s.SpawnArea.left();
+        auto& spnY {gl.create_widget<spinner>({{2, 1}, {1, 1}}, "SpawnY")};
+        spnY.Min   = -10000;
+        spnY.Max   = 10000;
+        spnY.Step  = 1;
+        spnY.Value = s.SpawnArea.top();
+        spnX.Value.Changed.connect([&s, &spnY, notify](f32 v) {
+            s.SpawnArea = {v, static_cast<f32>(*spnY.Value), s.SpawnArea.width(), s.SpawnArea.height()};
+            notify();
+        });
+        spnY.Value.Changed.connect([&s, &spnX, notify](f32 v) {
+            s.SpawnArea = {static_cast<f32>(*spnX.Value), v, s.SpawnArea.width(), s.SpawnArea.height()};
+            notify();
         });
     }
-    // Spawn Size
+    // Spawn W,H
     {
         auto& lbl {gl.create_widget<label>({{0, 2}, {1, 1}}, "LblSpawnSize")};
         lbl.Label = "Spawn W,H";
-        auto& tb {gl.create_widget<text_box>({{1, 2}, {2, 1}}, "SpawnSize")};
-        tb.Text = std::format("{},{}", emi.Settings.SpawnArea.width(), emi.Settings.SpawnArea.height());
-        tb.Submit.connect([&emi, &tb](auto const&) {
-            f32 w {}, h {};
-            if (std::sscanf(tb.Text->c_str(), "%f,%f", &w, &h) == 2) {
-                emi.Settings.SpawnArea = {emi.Settings.SpawnArea.left(), emi.Settings.SpawnArea.top(), w, h};
-            }
+        auto& spnW {gl.create_widget<spinner>({{1, 2}, {1, 1}}, "SpawnW")};
+        spnW.Min   = 0;
+        spnW.Max   = 10000;
+        spnW.Step  = 1;
+        spnW.Value = s.SpawnArea.width();
+        auto& spnH {gl.create_widget<spinner>({{2, 2}, {1, 1}}, "SpawnH")};
+        spnH.Min   = 0;
+        spnH.Max   = 10000;
+        spnH.Step  = 1;
+        spnH.Value = s.SpawnArea.height();
+        spnW.Value.Changed.connect([&s, &spnH, notify](f32 v) {
+            s.SpawnArea = {s.SpawnArea.left(), s.SpawnArea.top(), v, static_cast<f32>(*spnH.Value)};
+            notify();
+        });
+        spnH.Value.Changed.connect([&s, &spnW, notify](f32 v) {
+            s.SpawnArea = {s.SpawnArea.left(), s.SpawnArea.top(), static_cast<f32>(*spnW.Value), v};
+            notify();
         });
     }
 }
 
 ////////////////////////////////////////////////////////////
 
-void main_ui::build_pattern_settings(panel& parent, particle_emitter& emi)
+void main_ui::build_pattern_settings(panel& parent, isize emiIdx)
 {
-    auto& gl {parent.create_layout<grid_layout>(size_i {0, 0}, true)};
+    auto  notify {[this, emiIdx] { this->notify(emiIdx); }};
+    auto& s {_settings[emiIdx]};
+    auto& gl {parent.create_layout<grid_layout>(size_i {0, 17}, true)};
 
     i32 row {0};
 
@@ -156,7 +202,7 @@ void main_ui::build_pattern_settings(panel& parent, particle_emitter& emi)
         items.push_back({"Linear"});
         items.push_back({"Burst"});
     });
-    cyc.SelectedItemIndex = std::holds_alternative<particle_emitter::emit_burst>(emi.Settings.Pattern) ? 1 : 0;
+    cyc.SelectedItemIndex = std::holds_alternative<particle_emitter::emit_burst>(s.Pattern) ? 1 : 0;
     ++row;
 
     auto& lblRate {gl.create_widget<label>({{0, row}, {1, 1}}, "LblRate")};
@@ -165,55 +211,54 @@ void main_ui::build_pattern_settings(panel& parent, particle_emitter& emi)
     spnRate.Min  = 0;
     spnRate.Max  = 5000;
     spnRate.Step = 10;
-    if (auto* lin {std::get_if<particle_emitter::emit_linear>(&emi.Settings.Pattern)}) {
+    if (auto* lin {std::get_if<particle_emitter::emit_linear>(&s.Pattern)}) {
         spnRate.Value = lin->Rate;
     }
-    spnRate.Value.Changed.connect([&emi](f32 v) {
-        if (auto* lin {std::get_if<particle_emitter::emit_linear>(&emi.Settings.Pattern)}) {
+    spnRate.Value.Changed.connect([&s, notify](f32 v) {
+        if (auto* lin {std::get_if<particle_emitter::emit_linear>(&s.Pattern)}) {
             lin->Rate = v;
         }
+        notify();
     });
     ++row;
 
     auto& lblCount {gl.create_widget<label>({{0, row}, {1, 1}}, "LblCount")};
     lblCount.Label = "Count";
     auto& spnCount {gl.create_widget<spinner>({{1, row}, {2, 1}}, "SpnCount")};
-    spnCount.Min   = 0;
-    spnCount.Max   = 10000;
-    spnCount.Step  = 10;
-    spnCount.Value = 10;
+    spnCount.Min  = 1;
+    spnCount.Max  = 10000;
+    spnCount.Step = 10;
     ++row;
 
     auto& lblInterval {gl.create_widget<label>({{0, row}, {1, 1}}, "LblInterval")};
     lblInterval.Label = "Interval(ms)";
     auto& spnInterval {gl.create_widget<spinner>({{1, row}, {2, 1}}, "SpnInterval")};
-    spnInterval.Min   = 0;
-    spnInterval.Max   = 60000;
-    spnInterval.Step  = 100;
-    spnInterval.Value = 0;
+    spnInterval.Min  = 0;
+    spnInterval.Max  = 60000;
+    spnInterval.Step = 100;
     ++row;
 
     auto& lblRepeats {gl.create_widget<label>({{0, row}, {1, 1}}, "LblRepeats")};
     lblRepeats.Label = "Repeats";
     auto& spnRepeats {gl.create_widget<spinner>({{1, row}, {2, 1}}, "SpnRepeats")};
-    spnRepeats.Min   = 1;
-    spnRepeats.Max   = 10000;
-    spnRepeats.Step  = 1;
-    spnRepeats.Value = 0;
+    spnRepeats.Min  = 1;
+    spnRepeats.Max  = 10000;
+    spnRepeats.Step = 1;
     ++row;
 
-    if (auto* burst {std::get_if<particle_emitter::emit_burst>(&emi.Settings.Pattern)}) {
+    if (auto* burst {std::get_if<particle_emitter::emit_burst>(&s.Pattern)}) {
         spnCount.Value    = burst->Count;
         spnInterval.Value = static_cast<f32>(burst->Interval.count());
         spnRepeats.Value  = static_cast<f32>(burst->Repeats);
     }
 
-    auto syncBurst {[&emi, &spnCount, &spnInterval, &spnRepeats] {
-        if (auto* burst {std::get_if<particle_emitter::emit_burst>(&emi.Settings.Pattern)}) {
+    auto syncBurst {[&s, &spnCount, &spnInterval, &spnRepeats, notify] {
+        if (auto* burst {std::get_if<particle_emitter::emit_burst>(&s.Pattern)}) {
             burst->Count    = *spnCount.Value;
             burst->Interval = milliseconds {*spnInterval.Value};
             burst->Repeats  = static_cast<i32>(*spnRepeats.Value);
         }
+        notify();
     }};
     spnCount.Value.Changed.connect([syncBurst](f32) { syncBurst(); });
     spnInterval.Value.Changed.connect([syncBurst](f32) { syncBurst(); });
@@ -236,123 +281,61 @@ void main_ui::build_pattern_settings(panel& parent, particle_emitter& emi)
 
     updateVisibility(*cyc.SelectedItemIndex);
 
-    cyc.SelectedItemIndex.Changed.connect([&emi, updateVisibility](isize idx) {
+    cyc.SelectedItemIndex.Changed.connect([&s, updateVisibility, notify](isize idx) {
         if (idx == 0) {
-            emi.Settings.Pattern = particle_emitter::emit_linear {};
+            s.Pattern = particle_emitter::emit_linear {};
         } else {
-            emi.Settings.Pattern = particle_emitter::emit_burst {};
+            s.Pattern = particle_emitter::emit_burst {};
         }
         updateVisibility(idx);
+        notify();
     });
 }
 
 ////////////////////////////////////////////////////////////
 
-static auto make_minmax_row(
+static void make_minmax_row(
     grid_layout& gl, i32 row,
-    string const& lbl, f32 lo, f32 hi, f32 minVal, f32 maxVal, f32 step)
-    -> range_slider&
+    string const& lbl, f32 lo, f32 hi, f32 minVal, f32 maxVal, f32 step,
+    auto&& onChanged, auto&& notify)
 {
     auto& l {gl.create_widget<label>({{0, row}, {1, 1}}, "Lbl_" + lbl)};
-    l.Label = std::format("{}-{:.2f}|{:.2f}", lbl, lo, hi);
+    l.Label = lbl;
 
-    auto& rs {gl.create_widget<range_slider>({{1, row}, {2, 1}}, "RS_" + lbl)};
-    rs.Min      = minVal;
-    rs.Max      = maxVal;
-    rs.MaxRange = maxVal - minVal;
-    rs.Values   = {lo, hi};
-    rs.Step     = step;
+    auto& spnLo {gl.create_widget<spinner>({{1, row}, {1, 1}}, "SpnLo_" + lbl)};
+    spnLo.Min   = minVal;
+    spnLo.Max   = maxVal;
+    spnLo.Step  = step;
+    spnLo.Value = lo;
 
-    rs.Values.Changed.connect([&l, lbl](auto v) {
-        l.Label = std::format("{}-{:.2f}|{:.2f}", lbl, v.first, v.second);
+    auto& spnHi {gl.create_widget<spinner>({{2, row}, {1, 1}}, "SpnHi_" + lbl)};
+    spnHi.Min   = minVal;
+    spnHi.Max   = maxVal;
+    spnHi.Step  = step;
+    spnHi.Value = hi;
+
+    spnLo.Value.Changed.connect([&spnHi, onChanged, notify](f32 v) {
+        spnHi.Min = v;
+        onChanged(v, *spnHi.Value);
+        notify();
     });
-
-    return rs;
+    spnHi.Value.Changed.connect([&spnLo, onChanged, notify](f32 v) {
+        onChanged(*spnLo.Value, v);
+        notify();
+    });
 }
 
 ////////////////////////////////////////////////////////////
 
-void main_ui::build_template_settings(panel& parent, particle_emitter& emi)
+void main_ui::build_template_settings(panel& parent, isize emiIdx)
 {
     parent.ScrollEnabled = true;
-    auto& gl {parent.create_layout<grid_layout>(size_i {0, 0}, true)};
+    auto  notify {[this, emiIdx] { this->notify(emiIdx); }};
+    auto& t {_settings[emiIdx].Template};
+    auto& gl {parent.create_layout<grid_layout>(size_i {0, 17}, true)};
 
     i32 row {0};
 
-    // Speed
-    {
-        auto& rs {make_minmax_row(gl, row++, "Speed",
-                                  emi.Settings.Template.Speed.first,
-                                  emi.Settings.Template.Speed.second, 0, 2000, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Speed = std::minmax(v.first, v.second);
-        });
-    }
-    // Direction
-    {
-        auto& rs {make_minmax_row(gl, row++, "Direction",
-                                  emi.Settings.Template.Direction.first.Value,
-                                  emi.Settings.Template.Direction.second.Value, -360, 360, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Direction = std::minmax(degree_f {v.first}, degree_f {v.second});
-        });
-    }
-    // LinearAcceleration
-    {
-        auto& rs {make_minmax_row(gl, row++, "LinAccel",
-                                  emi.Settings.Template.LinearAcceleration.first,
-                                  emi.Settings.Template.LinearAcceleration.second, -500, 500, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.LinearAcceleration = std::minmax(v.first, v.second);
-        });
-    }
-    // LinearDamping
-    {
-        auto& rs {make_minmax_row(gl, row++, "LinDamping",
-                                  emi.Settings.Template.LinearDamping.first,
-                                  emi.Settings.Template.LinearDamping.second, 0, 2, 0.01f)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.LinearDamping = std::minmax(v.first, v.second);
-        });
-    }
-    // RadialAcceleration
-    {
-        auto& rs {make_minmax_row(gl, row++, "RadialAccel",
-                                  emi.Settings.Template.RadialAcceleration.first,
-                                  emi.Settings.Template.RadialAcceleration.second, -500, 500, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.RadialAcceleration = std::minmax(v.first, v.second);
-        });
-    }
-    // TangentialAcceleration
-    {
-        auto& rs {make_minmax_row(gl, row++, "TanAccel",
-                                  emi.Settings.Template.TangentialAcceleration.first,
-                                  emi.Settings.Template.TangentialAcceleration.second, -500, 500, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.TangentialAcceleration = std::minmax(v.first, v.second);
-        });
-    }
-    // Gravity X
-    {
-        auto& rs {make_minmax_row(gl, row++, "Gravity X",
-                                  emi.Settings.Template.Gravity.first.X,
-                                  emi.Settings.Template.Gravity.second.X, -500, 500, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Gravity.first.X  = v.first;
-            emi.Settings.Template.Gravity.second.X = v.second;
-        });
-    }
-    // Gravity Y
-    {
-        auto& rs {make_minmax_row(gl, row++, "Gravity Y",
-                                  emi.Settings.Template.Gravity.first.Y,
-                                  emi.Settings.Template.Gravity.second.Y, -500, 500, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Gravity.first.Y  = v.first;
-            emi.Settings.Template.Gravity.second.Y = v.second;
-        });
-    }
     // TextureRegion
     {
         auto& lbl {gl.create_widget<label>({{0, row}, {1, 1}}, "LblTexReg")};
@@ -363,99 +346,96 @@ void main_ui::build_template_settings(panel& parent, particle_emitter& emi)
             items.push_back({"snowflake"});
             items.push_back({"particle"});
         });
-        emi.Settings.Template.TextureRegion = "2x2";
-        ddl.SelectedItemIndex               = 0;
-        ddl.SelectedItemIndex.Changed.connect([&emi, &ddl](isize idx) {
+        t.TextureRegion       = "2x2";
+        ddl.SelectedItemIndex = 0;
+        ddl.SelectedItemIndex.Changed.connect([&t, &ddl, notify](isize idx) {
             if (idx >= 0 && idx < static_cast<isize>(ddl.Items->size())) {
-                emi.Settings.Template.TextureRegion = (*ddl.Items)[idx].Text;
+                t.TextureRegion = (*ddl.Items)[idx].Text;
+                notify();
             }
         });
         ++row;
     }
+
     // Colors
     {
         auto& lbl {gl.create_widget<label>({{0, row}, {1, 1}}, "LblColors")};
         lbl.Label = "Colors";
         auto&  tb {gl.create_widget<text_box>({{1, row}, {2, 1}}, "Colors")};
         string colStr;
-        for (auto const& c : emi.Settings.Template.Colors) {
+        for (auto const& c : t.Colors) {
             if (!colStr.empty()) { colStr += ','; }
             colStr += color::ToString(c);
         }
         tb.Text = colStr;
-        tb.Submit.connect([&emi, &tb](auto const&) {
-            emi.Settings.Template.Colors.clear();
+        auto parseColors {[&t, &tb, notify] {
+            t.Colors.clear();
             string             token;
             std::istringstream ss {*tb.Text};
             while (std::getline(ss, token, ',')) {
-                emi.Settings.Template.Colors.push_back(color::FromString(token));
+                t.Colors.push_back(color::FromString(token));
             }
-        });
+            notify();
+        }};
+        tb.Submit.connect([parseColors](auto const&) { parseColors(); });
+        tb.FocusLost.connect([parseColors](auto const&) { parseColors(); });
         ++row;
     }
-    // Transparency
-    {
-        auto& rs {make_minmax_row(gl, row++, "Transparency",
-                                  emi.Settings.Template.Transparency.first,
-                                  emi.Settings.Template.Transparency.second, 0, 1, 0.01f)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Transparency = std::minmax(v.first, v.second);
-        });
-    }
-    // Lifetime
-    {
-        auto& rs {make_minmax_row(gl, row++, "Lifetime(ms)",
-                                  static_cast<f32>(emi.Settings.Template.Lifetime.first.count()),
-                                  static_cast<f32>(emi.Settings.Template.Lifetime.second.count()),
-                                  0, 30000, 100)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Lifetime = std::minmax(milliseconds {v.first}, milliseconds {v.second});
-        });
-    }
-    // Scale
-    {
-        auto& rs {make_minmax_row(gl, row++, "Scale",
-                                  emi.Settings.Template.Scale.first,
-                                  emi.Settings.Template.Scale.second, 0, 10, 0.05f)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Scale = std::minmax(v.first, v.second);
-        });
-    }
+
     // Size
     {
-        auto& lbl {gl.create_widget<label>({{0, row}, {1, 1}}, "LblSize")};
-        lbl.Label = "Size W,H";
-        auto& tb {gl.create_widget<text_box>({{1, row}, {2, 1}}, "Size")};
-        tb.Text = std::format("{},{}", emi.Settings.Template.Size.Width, emi.Settings.Template.Size.Height);
-        tb.Submit.connect([&emi, &tb](auto const&) {
-            f32 w {}, h {};
-            if (std::sscanf(tb.Text->c_str(), "%f,%f", &w, &h) == 2) {
-                emi.Settings.Template.Size = {w, h};
-            }
+        auto& lbl {gl.create_widget<label>({{0, row}, {1, 1}}, "LblSizeW")};
+        lbl.Label = "Size (W,H)";
+        auto& spnW {gl.create_widget<spinner>({{1, row}, {1, 1}}, "SizeW")};
+        spnW.Min     = 0;
+        spnW.Max     = 1000;
+        spnW.Step    = 1;
+        spnW.Value   = t.Size.Width;
+        t.Size.Width = *spnW.Value;
+        spnW.Value.Changed.connect([&t, notify](f32 v) {
+            t.Size.Width = v;
+            notify();
+        });
+
+        auto& spnH {gl.create_widget<spinner>({{2, row}, {1, 1}}, "SizeH")};
+        spnH.Min      = 0;
+        spnH.Max      = 1000;
+        spnH.Step     = 1;
+        spnH.Value    = t.Size.Height;
+        t.Size.Height = *spnH.Value;
+        spnH.Value.Changed.connect([&t, notify](f32 v) {
+            t.Size.Height = v;
+            notify();
         });
         ++row;
     }
-    // Spin
-    {
-        auto& rs {make_minmax_row(gl, row++, "Spin",
-                                  emi.Settings.Template.Spin.first.Value,
-                                  emi.Settings.Template.Spin.second.Value, -360, 360, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Spin = std::minmax(degree_f {v.first}, degree_f {v.second});
-        });
-    }
-    // Rotation
-    {
-        auto& rs {make_minmax_row(gl, row++, "Rotation",
-                                  emi.Settings.Template.Rotation.first.Value,
-                                  emi.Settings.Template.Rotation.second.Value, -360, 360, 1)};
-        rs.Values.Changed.connect([&emi](auto v) {
-            emi.Settings.Template.Rotation = std::minmax(degree_f {v.first}, degree_f {v.second});
-        });
-    }
-}
 
-////////////////////////////////////////////////////////////
+    make_minmax_row(gl, row++, "Speed", t.Speed.first, t.Speed.second, 0, 2000, 1, [&t](f32 lo, f32 hi) { t.Speed = std::minmax(lo, hi); }, notify);
+
+    make_minmax_row(gl, row++, "Direction", t.Direction.first.Value, t.Direction.second.Value, -360, 360, 1, [&t](f32 lo, f32 hi) { t.Direction = std::minmax(degree_f {lo}, degree_f {hi}); }, notify);
+
+    make_minmax_row(gl, row++, "LinAccel", t.LinearAcceleration.first, t.LinearAcceleration.second, -500, 500, 1, [&t](f32 lo, f32 hi) { t.LinearAcceleration = std::minmax(lo, hi); }, notify);
+
+    make_minmax_row(gl, row++, "LinDamping", t.LinearDamping.first, t.LinearDamping.second, 0, 2, 0.01f, [&t](f32 lo, f32 hi) { t.LinearDamping = std::minmax(lo, hi); }, notify);
+
+    make_minmax_row(gl, row++, "RadialAccel", t.RadialAcceleration.first, t.RadialAcceleration.second, -500, 500, 1, [&t](f32 lo, f32 hi) { t.RadialAcceleration = std::minmax(lo, hi); }, notify);
+
+    make_minmax_row(gl, row++, "TanAccel", t.TangentialAcceleration.first, t.TangentialAcceleration.second, -500, 500, 1, [&t](f32 lo, f32 hi) { t.TangentialAcceleration = std::minmax(lo, hi); }, notify);
+
+    make_minmax_row(gl, row++, "Gravity X", t.Gravity.first.X, t.Gravity.second.X, -500, 500, 1, [&t](f32 lo, f32 hi) { t.Gravity.first.X = lo; t.Gravity.second.X = hi; }, notify);
+
+    make_minmax_row(gl, row++, "Gravity Y", t.Gravity.first.Y, t.Gravity.second.Y, -500, 500, 1, [&t](f32 lo, f32 hi) { t.Gravity.first.Y = lo; t.Gravity.second.Y = hi; }, notify);
+
+    make_minmax_row(gl, row++, "Transparency", t.Transparency.first, t.Transparency.second, 0, 1, 0.01f, [&t](f32 lo, f32 hi) { t.Transparency = std::minmax(lo, hi); }, notify);
+
+    make_minmax_row(gl, row++, "Lifetime(ms)", static_cast<f32>(t.Lifetime.first.count()), static_cast<f32>(t.Lifetime.second.count()), 0, 30000, 100, [&t](f32 lo, f32 hi) { t.Lifetime = std::minmax(milliseconds {lo}, milliseconds {hi}); }, notify);
+
+    make_minmax_row(gl, row++, "Scale", t.Scale.first, t.Scale.second, 0, 10, 0.05f, [&t](f32 lo, f32 hi) { t.Scale = std::minmax(lo, hi); }, notify);
+
+    make_minmax_row(gl, row++, "Spin", t.Spin.first.Value, t.Spin.second.Value, -360, 360, 1, [&t](f32 lo, f32 hi) { t.Spin = std::minmax(degree_f {lo}, degree_f {hi}); }, notify);
+
+    make_minmax_row(gl, row++, "Rotation", t.Rotation.first.Value, t.Rotation.second.Value, -360, 360, 1, [&t](f32 lo, f32 hi) { t.Rotation = std::minmax(degree_f {lo}, degree_f {hi}); }, notify);
+}
 
 void main_ui::create_styles(assets::group const& resGrp)
 {
@@ -464,7 +444,6 @@ void main_ui::create_styles(assets::group const& resGrp)
 
     style_collection styles;
 
-    // button
     {
         auto style {styles.create<button>("button", {})};
         style->Background        = color {30, 30, 35, 255};
@@ -500,14 +479,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         activeStyle->Background        = color {35, 70, 120, 255};
         activeStyle->Border.Background = color {80, 150, 220, 255};
         activeStyle->Margin            = {4_px, 4_px, 2_px, 2_px};
-
-        auto disabledStyle {styles.create<button>("button", {.Disabled = true})};
-        *disabledStyle                   = *style;
-        disabledStyle->Background        = color {20, 20, 24, 255};
-        disabledStyle->Border.Background = color {40, 40, 45, 255};
-        disabledStyle->Text.Color        = color {80, 80, 90, 255};
     }
-    // label
     {
         auto style {styles.create<label>("label", {})};
         style->Text.Font      = resGrp.get<font_family>("Poppins");
@@ -516,7 +488,6 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->Text.AutoSize  = auto_size_mode::OnlyShrink;
         style->Text.Alignment = {.Horizontal = horizontal_alignment::Left, .Vertical = vertical_alignment::Middle};
     }
-    // panel
     {
         auto style {styles.create<panel>("panel", {})};
         style->Background                       = color {22, 22, 28, 255};
@@ -536,13 +507,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         auto hoverStyle {styles.create<panel>("panel", {.Hover = true})};
         *hoverStyle                   = *style;
         hoverStyle->Border.Background = color {80, 150, 220, 255};
-
-        auto disabledStyle {styles.create<panel>("panel", {.Disabled = true})};
-        *disabledStyle                   = *style;
-        disabledStyle->Background        = color {18, 18, 22, 255};
-        disabledStyle->Border.Background = color {40, 40, 45, 255};
     }
-    // toggle
     {
         auto style {styles.create<toggle>("toggle", {})};
         style->Background        = color {30, 30, 35, 255};
@@ -599,14 +564,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         *activeCheckedStyle                 = *activeStyle;
         activeCheckedStyle->Tick.Size       = 100_pct;
         activeCheckedStyle->Tick.Foreground = color {80, 200, 120, 255};
-
-        auto disabledStyle {styles.create<toggle>("toggle", {.Disabled = true})};
-        *disabledStyle                   = *style;
-        disabledStyle->Background        = color {20, 20, 24, 255};
-        disabledStyle->Border.Background = color {40, 40, 45, 255};
-        disabledStyle->Tick.Foreground   = color {40, 40, 48, 255};
     }
-    // spinner
     {
         auto style {styles.create<spinner>("spinner", {})};
         style->Background        = color {30, 30, 35, 255};
@@ -627,34 +585,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         *hoverStyle                   = *style;
         hoverStyle->Background        = color {45, 45, 55, 255};
         hoverStyle->Border.Background = color {80, 150, 220, 255};
-
-        auto disabledStyle {styles.create<spinner>("spinner", {.Disabled = true})};
-        *disabledStyle                   = *style;
-        disabledStyle->Background        = color {20, 20, 24, 255};
-        disabledStyle->Border.Background = color {40, 40, 45, 255};
-        disabledStyle->Text.Color        = color {80, 80, 90, 255};
     }
-    // range_slider
-    {
-        auto style {styles.create<range_slider>("range_slider", {})};
-        style->Bar.LowerBackground   = color {50, 100, 160, 255};
-        style->Bar.HigherBackground  = color {80, 150, 220, 255};
-        style->Bar.Border.Background = color {60, 60, 70, 255};
-        style->Bar.Size              = 100_pct;
-        style->Bar.Delay             = 100ms;
-        style->Bar.Border.Size       = 1_px;
-        style->Bar.Border.Radius     = 3_px;
-        style->Margin                = {3_px};
-        style->Padding               = {2_px, 2_px};
-        style->ThumbClass            = "range_slider_thumb";
-
-        auto disabledStyle {styles.create<range_slider>("range_slider", {.Disabled = true})};
-        *disabledStyle                       = *style;
-        disabledStyle->Bar.LowerBackground   = color {30, 30, 36, 255};
-        disabledStyle->Bar.HigherBackground  = color {30, 30, 36, 255};
-        disabledStyle->Bar.Border.Background = color {40, 40, 45, 255};
-    }
-    // text_box
     {
         auto style {styles.create<text_box>("text_box", {})};
         style->Background        = color {30, 30, 35, 255};
@@ -681,14 +612,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         auto focusStyle {styles.create<text_box>("text_box", {.Focus = true})};
         *focusStyle                   = *style;
         focusStyle->Border.Background = color {100, 170, 240, 255};
-
-        auto disabledStyle {styles.create<text_box>("text_box", {.Disabled = true})};
-        *disabledStyle                   = *style;
-        disabledStyle->Background        = color {20, 20, 24, 255};
-        disabledStyle->Border.Background = color {40, 40, 45, 255};
-        disabledStyle->Text.Color        = color {80, 80, 90, 255};
     }
-    // drop_down_list
     {
         auto style {styles.create<drop_down_list>("drop_down_list", {})};
         style->Background                       = color {30, 30, 35, 255};
@@ -699,7 +623,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->Text.Font                        = resGrp.get<font_family>("Poppins");
         style->Text.Size                        = 40_pct;
         style->Text.Color                       = color {210, 210, 220, 255};
-        style->Text.Alignment                   = {horizontal_alignment::Centered, vertical_alignment::Middle};
+        style->Text.Alignment                   = {.Horizontal = horizontal_alignment::Centered, .Vertical = vertical_alignment::Middle};
         style->ItemHeight                       = 130_pct;
         style->ItemClass                        = "list_items";
         style->VScrollBar.ThumbClass            = "scrollbar_thumb";
@@ -710,20 +634,14 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->VScrollBar.Bar.HigherBackground  = color {80, 150, 220, 255};
         style->VScrollBar.Bar.Delay             = 150ms;
         style->MaxVisibleItems                  = 1;
+        style->Margin                           = {3_px};
+        style->Padding                          = {3_px};
 
         auto hoverStyle {styles.create<drop_down_list>("drop_down_list", {.Hover = true})};
         *hoverStyle                   = *style;
         hoverStyle->Background        = color {45, 45, 55, 255};
         hoverStyle->Border.Background = color {80, 150, 220, 255};
-        hoverStyle->MaxVisibleItems   = 6;
-
-        auto disabledStyle {styles.create<drop_down_list>("drop_down_list", {.Disabled = true})};
-        *disabledStyle                   = *style;
-        disabledStyle->Background        = color {20, 20, 24, 255};
-        disabledStyle->Border.Background = color {40, 40, 45, 255};
-        disabledStyle->Text.Color        = color {80, 80, 90, 255};
     }
-    // cycle_button
     {
         auto style {styles.create<cycle_button>("cycle_button", {})};
         style->Background            = color {30, 30, 35, 255};
@@ -755,15 +673,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         *activeStyle                   = *style;
         activeStyle->Background        = color {35, 70, 120, 255};
         activeStyle->Border.Background = color {80, 150, 220, 255};
-
-        auto disabledStyle {styles.create<cycle_button>("cycle_button", {.Disabled = true})};
-        *disabledStyle                      = *style;
-        disabledStyle->Background           = color {20, 20, 24, 255};
-        disabledStyle->Border.Background    = color {40, 40, 45, 255};
-        disabledStyle->Bar.LowerBackground  = color {30, 30, 36, 255};
-        disabledStyle->Bar.HigherBackground = color {30, 30, 36, 255};
     }
-    // tab_container
     {
         auto style {styles.create<tab_container>("tab_container", {})};
         style->Background        = color {22, 22, 28, 255};
@@ -782,13 +692,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         auto hoverStyle {styles.create<tab_container>("tab_container", {.Hover = true})};
         *hoverStyle                   = *style;
         hoverStyle->Border.Background = color {80, 150, 220, 255};
-
-        auto disabledStyle {styles.create<tab_container>("tab_container", {.Disabled = true})};
-        *disabledStyle                   = *style;
-        disabledStyle->Background        = color {18, 18, 22, 255};
-        disabledStyle->Border.Background = color {40, 40, 45, 255};
     }
-    // range_slider_thumb
     {
         auto style {styles.create<thumb_style>("range_slider_thumb", {})};
         style->Thumb.Background        = color {80, 130, 200, 255};
@@ -807,7 +711,6 @@ void main_ui::create_styles(assets::group const& resGrp)
         activeStyle->Thumb            = style->Thumb;
         activeStyle->Thumb.Background = color {140, 190, 255, 255};
     }
-    // scrollbar_thumb
     {
         auto style {styles.create<thumb_style>("scrollbar_thumb", {})};
         style->Thumb.Background        = color {80, 130, 200, 255};
@@ -824,12 +727,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         auto activeStyle {styles.create<thumb_style>("scrollbar_thumb", {.Active = true})};
         activeStyle->Thumb            = style->Thumb;
         activeStyle->Thumb.Background = color {140, 190, 255, 255};
-
-        auto disabledStyle {styles.create<thumb_style>("scrollbar_thumb", {.Disabled = true})};
-        disabledStyle->Thumb            = style->Thumb;
-        disabledStyle->Thumb.Background = color {40, 40, 48, 255};
     }
-    // nav_arrows
     {
         auto style {styles.create<nav_arrows_style>("nav_arrows", {})};
         style->NavArrow.Foreground        = color {180, 180, 200, 255};
@@ -837,7 +735,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->NavArrow.DownBackground    = color {80, 150, 220, 255};
         style->NavArrow.Border.Background = color {60, 60, 70, 255};
         style->NavArrow.Size.Height       = {0.75f, length::type::Relative};
-        style->NavArrow.Size.Width        = {0.20f, length::type::Relative};
+        style->NavArrow.Size.Width        = {0.10f, length::type::Relative};
         style->NavArrow.Border.Size       = 1_px;
         style->NavArrow.Border.Radius     = 2_px;
         style->NavArrow.Padding           = 1_px;
@@ -852,7 +750,6 @@ void main_ui::create_styles(assets::group const& resGrp)
         activeStyle->NavArrow.UpBackground   = color {140, 200, 255, 255};
         activeStyle->NavArrow.DownBackground = color {140, 200, 255, 255};
     }
-    // tab_items
     {
         auto style {styles.create<item_style>("tab_items", {})};
         style->Item.Background        = color {40, 40, 48, 255};
@@ -875,7 +772,6 @@ void main_ui::create_styles(assets::group const& resGrp)
         activeStyle->Item.Background        = color {35, 70, 120, 255};
         activeStyle->Item.Border.Background = color {80, 150, 220, 255};
     }
-    // items
     {
         auto style {styles.create<item_style>("items", {})};
         style->Item.Background        = color {40, 40, 48, 255};
@@ -883,8 +779,9 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->Item.Text.Color        = color {210, 210, 220, 255};
         style->Item.Padding           = {3_px};
         style->Item.Text.Font         = resGrp.get<font_family>("Poppins");
-        style->Item.Text.Size         = 40_pct;
-        style->Item.Text.Alignment    = {.Horizontal = horizontal_alignment::Left, .Vertical = vertical_alignment::Middle};
+        style->Item.Text.Size         = 80_pct;
+        style->Item.Text.AutoSize     = auto_size_mode::OnlyShrink;
+        style->Item.Text.Alignment    = {.Horizontal = horizontal_alignment::Centered, .Vertical = vertical_alignment::Middle};
         style->Item.Border.Size       = 1_px;
 
         auto hoverStyle {styles.create<item_style>("items", {.Hover = true})};
@@ -897,7 +794,6 @@ void main_ui::create_styles(assets::group const& resGrp)
         activeStyle->Item.Background        = color {35, 70, 120, 255};
         activeStyle->Item.Border.Background = color {80, 150, 220, 255};
     }
-    // list_items
     {
         auto style {styles.create<item_style>("list_items", {})};
         style->Item.Background        = color {40, 40, 48, 255};
@@ -934,11 +830,6 @@ void main_ui::create_styles(assets::group const& resGrp)
         auto hoverStyle {styles.create<accordion>("accordion", {.Hover = true})};
         *hoverStyle                   = *style;
         hoverStyle->Border.Background = color {80, 150, 220, 255};
-
-        auto disabledStyle {styles.create<accordion>("accordion", {.Disabled = true})};
-        *disabledStyle                   = *style;
-        disabledStyle->Background        = color {18, 18, 22, 255};
-        disabledStyle->Border.Background = color {40, 40, 45, 255};
     }
     {
         auto style {styles.create<item_style>("section_items", {})};

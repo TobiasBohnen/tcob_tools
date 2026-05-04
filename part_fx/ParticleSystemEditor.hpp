@@ -24,7 +24,8 @@ protected:
     void on_key_down(keyboard::event const& ev) override;
 
 private:
-    particle_system _system0;
+    particle_system                _system;
+    std::vector<particle_emitter*> _emitters;
 
     std::shared_ptr<main_ui> _ui;
 };
