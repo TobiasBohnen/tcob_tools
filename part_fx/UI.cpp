@@ -582,6 +582,8 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->Margin            = {3_px};
         style->Padding           = {3_px};
         style->NavArrowClass     = "nav_arrows";
+        style->Caret.BlinkRate   = 500ms;
+        style->Caret.Color       = colors::BlueViolet;
 
         auto hoverStyle {styles.create<spinner>("spinner", {.Hover = true})};
         *hoverStyle                   = *style;
