@@ -19,7 +19,7 @@ main_ui::main_ui(window& wnd, assets::group const& resGrp, std::unordered_map<st
 
     // toolbar
     auto& toolbar {create_container<panel>(dock_style::Top, "Toolbar")};
-    toolbar.RelativeSize = {.Width = 100_pct, .Height = 5_pct};
+    toolbar.RelativeSize = {1, 0.05f};
     auto& toolbarLayout {toolbar.create_layout<grid_layout>(size_i {6, 1})};
 
     auto& btnAddEmitter {toolbarLayout.create_widget<button>({{0, 0}, {1, 1}}, "BtnAdd")};
@@ -42,7 +42,7 @@ main_ui::main_ui(window& wnd, assets::group const& resGrp, std::unordered_map<st
 
     // emitter tabs
     auto& tabs {create_container<tab_container>(dock_style::Fill, "EmitterTabs")};
-    tabs.RelativeSize = {.Width = 100_pct, .Height = 95_pct};
+    tabs.RelativeSize = {1, 0.95f};
 
     btnAddEmitter.Click.connect([&] {
         _settings.push_back({});
