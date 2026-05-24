@@ -56,7 +56,7 @@ public:
     void on_mouse_motion(mouse::motion_event const& ev) const
     {
         if (_mouseDown) {
-            auto const zoom {camera().Zoom};
+            auto const& zoom {*camera().Zoom};
             move_by(-(point_f {ev.RelativeMotion} / point_f {zoom.Width, zoom.Height}));
         }
     }
@@ -82,7 +82,7 @@ private:
     void move_by(point_f off) const
     {
         auto& cam {camera()};
-        if (!LimitBounds || LimitBounds->contains(cam.Position + off)) {
+        if (!LimitBounds || LimitBounds->contains(*cam.Position + off)) {
             cam.move_by(off);
         }
     }
