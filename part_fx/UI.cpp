@@ -458,7 +458,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->Text.Size         = 100_pct;
         style->Text.Color        = color {210, 210, 220, 255};
         style->Text.AutoSize     = auto_size_mode::OnlyShrink;
-        style->Text.Alignment    = {.Horizontal = horizontal_alignment::Centered, .Vertical = vertical_alignment::Middle};
+        style->Text.Alignment    = {.Horizontal = horizontal_alignment::Center, .Vertical = vertical_alignment::Middle};
         style->Margin            = {3_px};
         style->Padding           = {2_px};
         style->EasingFunc        = easing_func::QuadOut;
@@ -627,7 +627,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->Text.Font                        = resGrp.get<font_family>("Poppins");
         style->Text.Size                        = 40_pct;
         style->Text.Color                       = color {210, 210, 220, 255};
-        style->Text.Alignment                   = {.Horizontal = horizontal_alignment::Centered, .Vertical = vertical_alignment::Middle};
+        style->Text.Alignment                   = {.Horizontal = horizontal_alignment::Center, .Vertical = vertical_alignment::Middle};
         style->ItemHeight                       = 130_pct;
         style->ItemClass                        = "list_items";
         style->VScrollBar.ThumbClass            = "scrollbar_thumb";
@@ -763,7 +763,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->Item.Text.Font         = resGrp.get<font_family>("Poppins");
         style->Item.Text.Size         = 80_pct;
         style->Item.Text.AutoSize     = auto_size_mode::OnlyShrink;
-        style->Item.Text.Alignment    = {.Horizontal = horizontal_alignment::Centered, .Vertical = vertical_alignment::Middle};
+        style->Item.Text.Alignment    = {.Horizontal = horizontal_alignment::Center, .Vertical = vertical_alignment::Middle};
         style->Item.Border.Size       = 1_px;
 
         auto hoverStyle {styles.create<item_style>("tab_items", {.Hover = true})};
@@ -785,7 +785,7 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->Item.Text.Font         = resGrp.get<font_family>("Poppins");
         style->Item.Text.Size         = 80_pct;
         style->Item.Text.AutoSize     = auto_size_mode::OnlyShrink;
-        style->Item.Text.Alignment    = {.Horizontal = horizontal_alignment::Centered, .Vertical = vertical_alignment::Middle};
+        style->Item.Text.Alignment    = {.Horizontal = horizontal_alignment::Center, .Vertical = vertical_alignment::Middle};
         style->Item.Border.Size       = 1_px;
 
         auto hoverStyle {styles.create<item_style>("items", {.Hover = true})};
