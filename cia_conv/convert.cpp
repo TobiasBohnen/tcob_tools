@@ -58,7 +58,6 @@ auto convert_audio(std::shared_ptr<io::ifstream>& in, std::string const& src, st
 
     std::any context {0};
 
-#if defined(TCOB_ENABLE_ADDON_AUDIO_TINYSOUNDFONT)
     asset_owner_ptr<sound_font> sf;
     if (!ctx.empty()) {
         if (!sf->load(ctx)) {
@@ -66,7 +65,6 @@ auto convert_audio(std::shared_ptr<io::ifstream>& in, std::string const& src, st
         }
         context = asset_ptr<sound_font> {sf};
     }
-#endif
 
     buffer bfr;
     if (!bfr.load(in, srcExt, context)) {

@@ -79,12 +79,10 @@ auto main(int argc, char* argv[]) -> int
             std::exit(0);
         });
 
-#if defined(TCOB_ENABLE_ADDON_AUDIO_TINYSOUNDFONT)
     program.add_argument("-sf", "--sound-font")
         .help("SoundFont file for midi")
         .default_value("")
         .nargs(1);
-#endif
 
     auto pl {platform::HeadlessInit("stdout")};
 
@@ -98,11 +96,7 @@ auto main(int argc, char* argv[]) -> int
 
     std::string const src {program.get("input")};
     std::string const dst {program.get("output")};
-#if defined(TCOB_ENABLE_ADDON_AUDIO_TINYSOUNDFONT)
     std::string const ctx {program.get("-sf")};
-#else
-    std::string const ctx {""};
-#endif
 
     if (!io::is_file(src)) {
         return print_error("file not found: " + src);
