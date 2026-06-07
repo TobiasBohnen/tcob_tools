@@ -408,25 +408,25 @@ void main_ui::build_template_settings(panel& parent, isize emiIdx)
         ++row;
     }
 
-    make_minmax_row(gl, row++, "Speed", t.Speed.first, t.Speed.second, 0, 2000, 1, [&t](f32 lo, f32 hi) { t.Speed = std::minmax(lo, hi); }, notify);
+    make_minmax_row(gl, row++, "Speed", t.Speed.first, t.Speed.second, 0, 100, 1, [&t](f32 lo, f32 hi) { t.Speed = std::minmax(lo, hi); }, notify);
 
     make_minmax_row(gl, row++, "Direction", t.Direction.first.Value, t.Direction.second.Value, -360, 360, 1, [&t](f32 lo, f32 hi) { t.Direction = std::minmax(degree_f {lo}, degree_f {hi}); }, notify);
 
-    make_minmax_row(gl, row++, "LinAccel", t.LinearAcceleration.first, t.LinearAcceleration.second, -500, 500, 1, [&t](f32 lo, f32 hi) { t.LinearAcceleration = std::minmax(lo, hi); }, notify);
+    make_minmax_row(gl, row++, "LinAccel", t.LinearAcceleration.first, t.LinearAcceleration.second, -50, 50, 1, [&t](f32 lo, f32 hi) { t.LinearAcceleration = std::minmax(lo, hi); }, notify);
 
     make_minmax_row(gl, row++, "LinDamping", t.LinearDamping.first, t.LinearDamping.second, 0, 2, 0.01f, [&t](f32 lo, f32 hi) { t.LinearDamping = std::minmax(lo, hi); }, notify);
 
-    make_minmax_row(gl, row++, "RadialAccel", t.RadialAcceleration.first, t.RadialAcceleration.second, -500, 500, 1, [&t](f32 lo, f32 hi) { t.RadialAcceleration = std::minmax(lo, hi); }, notify);
+    make_minmax_row(gl, row++, "RadialAccel", t.RadialAcceleration.first, t.RadialAcceleration.second, -50, 50, 1, [&t](f32 lo, f32 hi) { t.RadialAcceleration = std::minmax(lo, hi); }, notify);
 
-    make_minmax_row(gl, row++, "TanAccel", t.TangentialAcceleration.first, t.TangentialAcceleration.second, -500, 500, 1, [&t](f32 lo, f32 hi) { t.TangentialAcceleration = std::minmax(lo, hi); }, notify);
+    make_minmax_row(gl, row++, "TanAccel", t.TangentialAcceleration.first, t.TangentialAcceleration.second, -50, 50, 1, [&t](f32 lo, f32 hi) { t.TangentialAcceleration = std::minmax(lo, hi); }, notify);
 
-    make_minmax_row(gl, row++, "Gravity X", t.Gravity.first.X, t.Gravity.second.X, -500, 500, 1, [&t](f32 lo, f32 hi) { t.Gravity.first.X = lo; t.Gravity.second.X = hi; }, notify);
+    make_minmax_row(gl, row++, "Gravity X", t.Gravity.first.X, t.Gravity.second.X, -50, 50, 1, [&t](f32 lo, f32 hi) { t.Gravity.first.X = lo; t.Gravity.second.X = hi; }, notify);
 
-    make_minmax_row(gl, row++, "Gravity Y", t.Gravity.first.Y, t.Gravity.second.Y, -500, 500, 1, [&t](f32 lo, f32 hi) { t.Gravity.first.Y = lo; t.Gravity.second.Y = hi; }, notify);
+    make_minmax_row(gl, row++, "Gravity Y", t.Gravity.first.Y, t.Gravity.second.Y, -50, 50, 1, [&t](f32 lo, f32 hi) { t.Gravity.first.Y = lo; t.Gravity.second.Y = hi; }, notify);
 
     make_minmax_row(gl, row++, "Transparency", t.Transparency.first, t.Transparency.second, 0, 1, 0.01f, [&t](f32 lo, f32 hi) { t.Transparency = std::minmax(lo, hi); }, notify);
 
-    make_minmax_row(gl, row++, "Lifetime(ms)", static_cast<f32>(t.Lifetime.first.count()), static_cast<f32>(t.Lifetime.second.count()), 0, 30000, 100, [&t](f32 lo, f32 hi) { t.Lifetime = std::minmax(milliseconds {lo}, milliseconds {hi}); }, notify);
+    make_minmax_row(gl, row++, "Lifetime", static_cast<f32>(t.Lifetime.first.count()), static_cast<f32>(t.Lifetime.second.count()), 0, 4000, 100, [&t](f32 lo, f32 hi) { t.Lifetime = std::minmax(milliseconds {lo}, milliseconds {hi}); }, notify);
 
     make_minmax_row(gl, row++, "Scale", t.Scale.first, t.Scale.second, 0, 10, 0.05f, [&t](f32 lo, f32 hi) { t.Scale = std::minmax(lo, hi); }, notify);
 
