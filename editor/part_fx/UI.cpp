@@ -300,28 +300,24 @@ static void make_minmax_row(
     string const& lbl, f32 lo, f32 hi, f32 minVal, f32 maxVal, f32 step,
     auto&& onChanged, auto&& notify)
 {
-    auto& l {gl.create_widget<label>({{0, row}, {1, 1}}, "Lbl_" + lbl)};
+    auto& l {gl.create_widget<label>({{0, row}, {2, 1}}, "Lbl_" + lbl)};
     l.Label = lbl;
 
-    auto& spnLo {gl.create_widget<spinner>({{1, row}, {1, 1}}, "SpnLo_" + lbl)};
-    spnLo.Min   = minVal;
-    spnLo.Max   = maxVal;
-    spnLo.Step  = step;
-    spnLo.Value = lo;
+    auto& llow {gl.create_widget<label>({{2, row}, {1, 1}}, "Lbl_" + lbl)};
+    llow.Label = std::format("{:.{}f}", lo, 2);
+    auto& lhigh {gl.create_widget<label>({{5, row}, {1, 1}}, "Lbl_" + lbl)};
+    lhigh.Label = std::format("{:.{}f}", hi, 2);
 
-    auto& spnHi {gl.create_widget<spinner>({{2, row}, {1, 1}}, "SpnHi_" + lbl)};
-    spnHi.Min   = minVal;
-    spnHi.Max   = maxVal;
-    spnHi.Step  = step;
-    spnHi.Value = hi;
+    auto& slider {gl.create_widget<range_slider>({{3, row}, {2, 1}}, "SpnLo_" + lbl)};
+    slider.Min      = minVal;
+    slider.Max      = maxVal;
+    slider.MaxRange = maxVal - minVal;
+    slider.Step     = step;
 
-    spnLo.Value.Changed.connect([&spnHi, onChanged, notify](f32 v) {
-        spnHi.Min = v;
-        onChanged(v, *spnHi.Value);
-        notify();
-    });
-    spnHi.Value.Changed.connect([&spnLo, onChanged, notify](f32 v) {
-        onChanged(*spnLo.Value, v);
+    slider.Values.Changed.connect([&llow, &lhigh, onChanged, notify](auto const& vals) {
+        llow.Label  = std::format("{:.{}f}", vals.first, 2);
+        lhigh.Label = std::format("{:.{}f}", vals.second, 2);
+        onChanged(vals.first, vals.second);
         notify();
     });
 }
@@ -341,7 +337,7 @@ void main_ui::build_template_settings(panel& parent, isize emiIdx)
     {
         auto& lbl {gl.create_widget<label>({{0, row}, {1, 1}}, "LblTexReg")};
         lbl.Label = "TexRegion";
-        auto& ddl {gl.create_widget<drop_down_list>({{1, row}, {2, 1}}, "TexRegion")};
+        auto& ddl {gl.create_widget<drop_down_list>({{1, row}, {6, 1}}, "TexRegion")};
         ddl.Items.mutate([&](auto& items) {
             for (auto const& tr : _texRegions) {
                 items.push_back({tr});
@@ -363,7 +359,7 @@ void main_ui::build_template_settings(panel& parent, isize emiIdx)
     {
         auto& lbl {gl.create_widget<label>({{0, row}, {1, 1}}, "LblColors")};
         lbl.Label = "Colors";
-        auto&  tb {gl.create_widget<text_box>({{1, row}, {2, 1}}, "Colors")};
+        auto&  tb {gl.create_widget<text_box>({{1, row}, {6, 1}}, "Colors")};
         string colStr;
         for (auto const& c : t.Colors) {
             if (!colStr.empty()) { colStr += ','; }
@@ -388,7 +384,7 @@ void main_ui::build_template_settings(panel& parent, isize emiIdx)
     {
         auto& lbl {gl.create_widget<label>({{0, row}, {1, 1}}, "LblSizeW")};
         lbl.Label = "Size (W,H)";
-        auto& spnW {gl.create_widget<spinner>({{1, row}, {1, 1}}, "SizeW")};
+        auto& spnW {gl.create_widget<spinner>({{1, row}, {3, 1}}, "SizeW")};
         spnW.Min     = 0;
         spnW.Max     = 1000;
         spnW.Step    = 1;
@@ -399,7 +395,7 @@ void main_ui::build_template_settings(panel& parent, isize emiIdx)
             notify();
         });
 
-        auto& spnH {gl.create_widget<spinner>({{2, row}, {1, 1}}, "SizeH")};
+        auto& spnH {gl.create_widget<spinner>({{4, row}, {3, 1}}, "SizeH")};
         spnH.Min      = 0;
         spnH.Max      = 1000;
         spnH.Step     = 1;
@@ -568,6 +564,36 @@ void main_ui::create_styles(assets::group const& resGrp)
         activeCheckedStyle->Tick.Foreground = color {80, 200, 120, 255};
     }
     {
+        auto style {styles.create<range_slider>("range_slider", {})};
+        style->Background           = color {30, 30, 35, 255};
+        style->Border.Background    = color {60, 60, 70, 255};
+        style->Border.Size          = 1_px;
+        style->Border.Radius        = 3_px;
+        style->DropShadow.Color     = color {0, 0, 0, 80};
+        style->Margin               = {3_px};
+        style->Padding              = {1_px};
+        style->ThumbClass           = "range_slider_thumb";
+        style->Bar.Size             = 50_pct;
+        style->Bar.Delay            = 250ms;
+        style->Bar.Border.Size      = 3_px;
+        style->Bar.Border.Radius    = 5_px;
+        style->Bar.HigherBackground = color {60, 60, 70, 255};
+        style->Bar.LowerBackground  = style->Bar.HigherBackground;
+
+        auto hoverStyle {styles.create<range_slider>("range_slider", {.Hover = true})};
+        *hoverStyle                   = *style;
+        hoverStyle->Background        = color {45, 45, 55, 255};
+        hoverStyle->Border.Background = color {80, 150, 220, 255};
+
+        auto lockedStyle {styles.create<range_slider>("range_slider", {}, {{"locked", {rule::Equal(true)}}})};
+        *lockedStyle            = *style;
+        lockedStyle->ThumbClass = "range_slider_thumb_locked";
+
+        auto lockedHoverStyle {styles.create<range_slider>("range_slider", {.Hover = true}, {{"locked", {rule::Equal(true)}}})};
+        *lockedHoverStyle            = *hoverStyle;
+        lockedHoverStyle->ThumbClass = "range_slider_thumb_locked";
+    }
+    {
         auto style {styles.create<spinner>("spinner", {})};
         style->Background        = color {30, 30, 35, 255};
         style->Border.Background = color {60, 60, 70, 255};
@@ -631,13 +657,13 @@ void main_ui::create_styles(assets::group const& resGrp)
         style->ItemHeight                       = 130_pct;
         style->ItemClass                        = "list_items";
         style->VScrollBar.ThumbClass            = "scrollbar_thumb";
-        style->VScrollBar.Bar.Size              = 20_pct;
+        style->VScrollBar.Bar.Size              = 10_pct;
         style->VScrollBar.Bar.Border.Size       = 1_px;
         style->VScrollBar.Bar.Border.Background = color {60, 60, 70, 255};
         style->VScrollBar.Bar.LowerBackground   = color {50, 100, 160, 255};
         style->VScrollBar.Bar.HigherBackground  = color {80, 150, 220, 255};
         style->VScrollBar.Bar.Delay             = 150ms;
-        style->MaxVisibleItems                  = 1;
+        style->MaxVisibleItems                  = 5;
         style->Margin                           = {3_px};
         style->Padding                          = {3_px};
 
@@ -714,6 +740,24 @@ void main_ui::create_styles(assets::group const& resGrp)
         auto activeStyle {styles.create<thumb_style>("range_slider_thumb", {.Active = true})};
         activeStyle->Thumb            = style->Thumb;
         activeStyle->Thumb.Background = color {140, 190, 255, 255};
+    }
+    {
+        auto style {styles.create<thumb_style>("range_slider_thumb_locked", {})};
+        style->Thumb.Background        = color {130, 80, 200, 255};
+        style->Thumb.Border.Background = color {60, 60, 70, 255};
+        style->Thumb.Type              = thumb_type::Rect;
+        style->Thumb.LongSide          = 12_pct;
+        style->Thumb.ShortSide         = 100_pct;
+        style->Thumb.Border.Size       = 1_px;
+        style->Thumb.Border.Radius     = 2_px;
+
+        auto hoverStyle {styles.create<thumb_style>("range_slider_thumb_locked", {.Hover = true})};
+        hoverStyle->Thumb            = style->Thumb;
+        hoverStyle->Thumb.Background = color {160, 100, 230, 255};
+
+        auto activeStyle {styles.create<thumb_style>("range_slider_thumb_locked", {.Active = true})};
+        activeStyle->Thumb            = style->Thumb;
+        activeStyle->Thumb.Background = color {190, 140, 255, 255};
     }
     {
         auto style {styles.create<thumb_style>("scrollbar_thumb", {})};
