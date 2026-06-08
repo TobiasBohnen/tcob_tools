@@ -303,22 +303,34 @@ static void make_minmax_row(
     auto& l {gl.create_widget<label>({{0, row}, {2, 1}}, "Lbl_" + lbl)};
     l.Label = lbl;
 
-    auto& llow {gl.create_widget<label>({{2, row}, {1, 1}}, "Lbl_" + lbl)};
-    llow.Label = std::format("{:.{}f}", lo, 2);
-    auto& lhigh {gl.create_widget<label>({{5, row}, {1, 1}}, "Lbl_" + lbl)};
-    lhigh.Label = std::format("{:.{}f}", hi, 2);
+    auto& llow {gl.create_widget<spinner>({{2, row}, {1, 1}}, "Lbl_" + lbl)};
+    llow.Value = lo;
+    llow.Max   = maxVal;
+    llow.Min   = minVal;
 
-    auto& slider {gl.create_widget<range_slider>({{3, row}, {2, 1}}, "SpnLo_" + lbl)};
+    auto& lhigh {gl.create_widget<spinner>({{6, row}, {1, 1}}, "Lbl_" + lbl)};
+    lhigh.Value = hi;
+    lhigh.Max   = maxVal;
+    lhigh.Min   = minVal;
+
+    auto& slider {gl.create_widget<range_slider>({{3, row}, {3, 1}}, "SpnLo_" + lbl)};
     slider.Min      = minVal;
     slider.Max      = maxVal;
     slider.MaxRange = maxVal - minVal;
     slider.Step     = step;
 
     slider.Values.Changed.connect([&llow, &lhigh, onChanged, notify](auto const& vals) {
-        llow.Label  = std::format("{:.{}f}", vals.first, 2);
-        lhigh.Label = std::format("{:.{}f}", vals.second, 2);
+        llow.Value  = vals.first;
+        lhigh.Value = vals.second;
         onChanged(vals.first, vals.second);
         notify();
+    });
+
+    llow.Value.Changed.connect([&slider](f32 val) {
+        slider.Values.mutate([&](auto& values) { values.first = val; });
+    });
+    lhigh.Value.Changed.connect([&slider](f32 val) {
+        slider.Values.mutate([&](auto& values) { values.second = val; });
     });
 }
 
@@ -409,29 +421,17 @@ void main_ui::build_template_settings(panel& parent, isize emiIdx)
     }
 
     make_minmax_row(gl, row++, "Speed", t.Speed.first, t.Speed.second, 0, 100, 1, [&t](f32 lo, f32 hi) { t.Speed = std::minmax(lo, hi); }, notify);
-
     make_minmax_row(gl, row++, "Direction", t.Direction.first.Value, t.Direction.second.Value, -360, 360, 1, [&t](f32 lo, f32 hi) { t.Direction = std::minmax(degree_f {lo}, degree_f {hi}); }, notify);
-
     make_minmax_row(gl, row++, "LinAccel", t.LinearAcceleration.first, t.LinearAcceleration.second, -50, 50, 1, [&t](f32 lo, f32 hi) { t.LinearAcceleration = std::minmax(lo, hi); }, notify);
-
     make_minmax_row(gl, row++, "LinDamping", t.LinearDamping.first, t.LinearDamping.second, 0, 2, 0.01f, [&t](f32 lo, f32 hi) { t.LinearDamping = std::minmax(lo, hi); }, notify);
-
     make_minmax_row(gl, row++, "RadialAccel", t.RadialAcceleration.first, t.RadialAcceleration.second, -50, 50, 1, [&t](f32 lo, f32 hi) { t.RadialAcceleration = std::minmax(lo, hi); }, notify);
-
     make_minmax_row(gl, row++, "TanAccel", t.TangentialAcceleration.first, t.TangentialAcceleration.second, -50, 50, 1, [&t](f32 lo, f32 hi) { t.TangentialAcceleration = std::minmax(lo, hi); }, notify);
-
     make_minmax_row(gl, row++, "Gravity X", t.Gravity.first.X, t.Gravity.second.X, -50, 50, 1, [&t](f32 lo, f32 hi) { t.Gravity.first.X = lo; t.Gravity.second.X = hi; }, notify);
-
     make_minmax_row(gl, row++, "Gravity Y", t.Gravity.first.Y, t.Gravity.second.Y, -50, 50, 1, [&t](f32 lo, f32 hi) { t.Gravity.first.Y = lo; t.Gravity.second.Y = hi; }, notify);
-
     make_minmax_row(gl, row++, "Transparency", t.Transparency.first, t.Transparency.second, 0, 1, 0.01f, [&t](f32 lo, f32 hi) { t.Transparency = std::minmax(lo, hi); }, notify);
-
     make_minmax_row(gl, row++, "Lifetime", static_cast<f32>(t.Lifetime.first.count()), static_cast<f32>(t.Lifetime.second.count()), 0, 4000, 100, [&t](f32 lo, f32 hi) { t.Lifetime = std::minmax(milliseconds {lo}, milliseconds {hi}); }, notify);
-
     make_minmax_row(gl, row++, "Scale", t.Scale.first, t.Scale.second, 0, 10, 0.05f, [&t](f32 lo, f32 hi) { t.Scale = std::minmax(lo, hi); }, notify);
-
     make_minmax_row(gl, row++, "Spin", t.Spin.first.Value, t.Spin.second.Value, -360, 360, 1, [&t](f32 lo, f32 hi) { t.Spin = std::minmax(degree_f {lo}, degree_f {hi}); }, notify);
-
     make_minmax_row(gl, row++, "Rotation", t.Rotation.first.Value, t.Rotation.second.Value, -360, 360, 1, [&t](f32 lo, f32 hi) { t.Rotation = std::minmax(degree_f {lo}, degree_f {hi}); }, notify);
 }
 
