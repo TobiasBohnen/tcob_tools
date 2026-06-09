@@ -300,18 +300,17 @@ static void make_minmax_row(
     string const& lbl, f32 lo, f32 hi, f32 minVal, f32 maxVal, f32 step,
     auto&& onChanged, auto&& notify)
 {
-    auto& l {gl.create_widget<label>({{0, row}, {2, 1}}, "Lbl_" + lbl)};
+    auto const prec {step < 1 ? 2 : 0};
+    auto&      l {gl.create_widget<label>({{0, row}, {2, 1}}, "Lbl_" + lbl)};
     l.Label = lbl;
 
-    auto& llow {gl.create_widget<spinner>({{2, row}, {1, 1}}, "Lbl_" + lbl)};
-    llow.Value = lo;
-    llow.Max   = maxVal;
-    llow.Min   = minVal;
+    auto& llow {gl.create_widget<text_box>({{2, row}, {1, 1}}, "Lbl_" + lbl)};
+    llow.Text        = std::format("{:.{}f}", lo, prec);
+    llow.NumericOnly = true;
 
-    auto& lhigh {gl.create_widget<spinner>({{6, row}, {1, 1}}, "Lbl_" + lbl)};
-    lhigh.Value = hi;
-    lhigh.Max   = maxVal;
-    lhigh.Min   = minVal;
+    auto& lhigh {gl.create_widget<text_box>({{6, row}, {1, 1}}, "Lbl_" + lbl)};
+    lhigh.Text        = std::format("{:.{}f}", hi, prec);
+    lhigh.NumericOnly = true;
 
     auto& slider {gl.create_widget<range_slider>({{3, row}, {3, 1}}, "SpnLo_" + lbl)};
     slider.Min      = minVal;
@@ -319,18 +318,18 @@ static void make_minmax_row(
     slider.MaxRange = maxVal - minVal;
     slider.Step     = step;
 
-    slider.Values.Changed.connect([&llow, &lhigh, onChanged, notify](auto const& vals) {
-        llow.Value  = vals.first;
-        lhigh.Value = vals.second;
+    slider.Values.Changed.connect([&llow, &lhigh, onChanged, notify, prec](auto const& vals) {
+        llow.Text  = std::format("{:.{}f}", vals.first, prec);
+        lhigh.Text = std::format("{:.{}f}", vals.second, prec);
         onChanged(vals.first, vals.second);
         notify();
     });
 
-    llow.Value.Changed.connect([&slider](f32 val) {
-        slider.Values.mutate([&](auto& values) { values.first = val; });
+    llow.Submit.connect([&slider](auto const& val) {
+        slider.Values.mutate([&](auto& values) { values.first = *helper::to_number<f32>(val.Text); });
     });
-    lhigh.Value.Changed.connect([&slider](f32 val) {
-        slider.Values.mutate([&](auto& values) { values.second = val; });
+    lhigh.Submit.connect([&slider](auto const& val) {
+        slider.Values.mutate([&](auto& values) { values.second = *helper::to_number<f32>(val.Text); });
     });
 }
 
